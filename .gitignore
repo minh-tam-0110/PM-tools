@@ -13,3 +13,13 @@ backend/data/
 .DS_Store
 .idea/
 .vscode/
+
+# Wolffun-specific — config, docs, branding
+backend/features/bridge/bridge_config.py
+CLAUDE.md
+PROJECT.md
+README.md
+dashboard.jsx
+dashboard-sample.jsx
+docs/
+skills/
