@@ -66,11 +66,17 @@ export function useDataBridge() {
     useConnStore.getState().setIframeSt('loading')
     try {
       const r = await bridgeApi.scrape()
-      const norm = normalizeImported({ tasks: r.tasks })
-      useTaskStore.getState().setAll(norm)
       useConnStore.getState().setSrc('be')
       useConnStore.getState().setIframeSt('connected')
       useConnStore.getState().touchSync()
+      // Skip re-normalize + re-render nếu hash không đổi
+      const prevHash = useConnStore.getState().lastHash
+      if (r.hash && prevHash === r.hash) {
+        return { ok: true, count: useTaskStore.getState().tasks.length }
+      }
+      const norm = normalizeImported({ tasks: r.tasks })
+      useTaskStore.getState().setAll(norm)
+      if (r.hash) useConnStore.getState().setHash(r.hash)
       return { ok: true, count: norm.tasks.length }
     } catch (e) {
       useConnStore.getState().setIframeSt('error')

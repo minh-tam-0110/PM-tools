@@ -305,7 +305,11 @@ def _goto_my_work(page) -> dict:
         page.wait_for_selector('[draggable="true"]', state="attached", timeout=20000)
     except PWTimeout:
         logger.warning("initial table headers not found — continuing")
-    page.wait_for_timeout(1500)
+    # Đợi network idle thay vì sleep cứng — table render xong khi fetch initial data done
+    try:
+        page.wait_for_load_state("networkidle", timeout=5000)
+    except PWTimeout:
+        pass
     body_len = page.evaluate("() => (document.body && document.body.innerText.length) || 0")
     headers = page.evaluate("() => document.querySelectorAll('[draggable=\"true\"]').length")
     return {
@@ -319,9 +323,12 @@ def _goto_my_work(page) -> dict:
 def _open_overview_dialog(page) -> None:
     """Click button "Project Overview" để mở dialog."""
     page.get_by_role("button", name="Project Overview").first.click(timeout=10000)
-    # Đợi dialog mount
     page.wait_for_selector('.MuiDialog-paper[role="dialog"]', timeout=10000)
-    page.wait_for_timeout(600)
+    # Đợi table render xong thay vì sleep cứng
+    try:
+        page.wait_for_selector('.MuiDialog-paper table tbody tr', timeout=8000)
+    except PWTimeout:
+        logger.warning("dialog table rows not rendered yet")
 
 
 def _close_popover(page) -> None:
@@ -340,13 +347,55 @@ def _close_popover(page) -> None:
 _ITEM_SELECTOR = ".MuiPopover-root .MuiListItemButton-root"
 
 
+def _wait_dialog_table_settle(page, timeout: int = 6000) -> None:
+    """Đợi table trong dialog re-render xong sau khi đổi project/sprint.
+
+    Strategy: poll innerHTML signature — settle khi 2 lần liên tiếp giống nhau
+    và có row. Reset cờ trước mỗi lần đợi để tránh match nhầm với render cũ.
+    """
+    page.evaluate("() => { window.__tblSig = '__init__'; }")
+    try:
+        page.wait_for_function(
+            """
+            () => {
+              const tbl = document.querySelector('.MuiDialog-paper table');
+              if (!tbl) return false;
+              const rows = tbl.querySelectorAll('tbody tr').length;
+              if (rows === 0) return false;
+              const sig = tbl.innerHTML.length + ':' + rows;
+              const settled = window.__tblSig === sig;
+              window.__tblSig = sig;
+              return settled;
+            }
+            """,
+            timeout=timeout,
+            polling=300,
+        )
+    except PWTimeout:
+        logger.debug("table did not settle within %dms", timeout)
+
+
+def _wait_popover_stable(page) -> None:
+    """Đợi popover items list ổn định (count không đổi trong 2 frames)."""
+    try:
+        page.wait_for_function(
+            """() => {
+              const items = document.querySelectorAll('.MuiPopover-root .MuiListItemButton-root');
+              return items.length > 0;
+            }""",
+            timeout=3000,
+        )
+    except PWTimeout:
+        pass
+
+
 def _open_project_dropdown(page) -> None:
     """Click project dropdown trong DialogTitle (button có endIcon đầu tiên)."""
     page.locator(
         '.MuiDialogTitle-root button.MuiButton-outlined:has(.MuiButton-endIcon)'
     ).first.click(timeout=5000)
     page.wait_for_selector(_ITEM_SELECTOR, timeout=5000)
-    page.wait_for_timeout(400)
+    _wait_popover_stable(page)
 
 
 def _open_sprint_dropdown(page) -> None:
@@ -355,7 +404,7 @@ def _open_sprint_dropdown(page) -> None:
         '.MuiDialog-paper button.MuiButton-outlined:has(.MuiButton-endIcon)'
     ).nth(1).click(timeout=5000)
     page.wait_for_selector(_ITEM_SELECTOR, timeout=5000)
-    page.wait_for_timeout(400)
+    _wait_popover_stable(page)
 
 
 def _read_dropdown_state(page) -> list[dict]:
@@ -389,10 +438,10 @@ def _select_only_project(page, target: str) -> None:
         want = (it["text"] == target)
         if it["checked"] != want:
             items.nth(i).click()
-            page.wait_for_timeout(250)
+            # MUI checkbox flip là sync — không cần sleep
     page.keyboard.press("Escape")
     _close_popover(page)
-    page.wait_for_timeout(800)
+    _wait_dialog_table_settle(page)
 
 
 def _select_first_sprint(page) -> str | None:
@@ -417,7 +466,6 @@ def _select_first_sprint(page) -> str | None:
     for i, s in real:
         if s["checked"]:
             items.nth(i).click()
-            page.wait_for_timeout(200)
 
     # Re-read state để chắc chắn (DOM có thể re-order/re-render)
     state2 = _read_dropdown_state(page)
@@ -432,10 +480,9 @@ def _select_first_sprint(page) -> str | None:
 
     idx, target_state = real2[0]
     items.nth(idx).click()
-    page.wait_for_timeout(400)
     page.keyboard.press("Escape")
     _close_popover(page)
-    page.wait_for_timeout(800)
+    _wait_dialog_table_settle(page)
     return target_state["text"]
 
 
@@ -483,7 +530,6 @@ def scrape_my_work(profile_dir: str) -> dict:
                     sprint_raw = _select_first_sprint(page)
                     # Sprint button text có thể chứa workload "\n\n42h/58h" — lấy line đầu
                     sprint = sprint_raw.splitlines()[0].strip() if sprint_raw else None
-                    page.wait_for_timeout(2000)
                     rows = _scrape_dialog_table(page)
                     for r in rows:
                         r["module"] = proj  # override với project name (chuẩn xác hơn)

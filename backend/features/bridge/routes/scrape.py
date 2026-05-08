@@ -1,10 +1,34 @@
 """Bridge endpoints: login (headed), scrape (headless), dump (debug), status."""
+import hashlib
+import json
 import logging
 
 from flask import Blueprint, current_app, jsonify
 
 from ..bridge_config import LAST_DOM_DUMP_PATH
 from ..services import scraper
+
+
+def _hash_tasks(tasks: list[dict]) -> str:
+    """Stable hash của task list — sort theo id, chỉ field nội dung user-facing."""
+    canon = sorted(
+        (
+            {
+                "id": t.get("id", ""),
+                "title": t.get("title", ""),
+                "status": t.get("status", ""),
+                "module": t.get("module", ""),
+                "assignee": t.get("assignee", ""),
+                "deadline": t.get("deadline", ""),
+                "priority": t.get("priority", ""),
+                "sprint": t.get("sprint", ""),
+            }
+            for t in tasks
+        ),
+        key=lambda x: x["id"],
+    )
+    blob = json.dumps(canon, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()[:16]
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +62,7 @@ def scrape():
     except Exception as exc:
         logger.exception("scrape_my_work failed")
         return jsonify({"error": str(exc)}), 500
+    result["hash"] = _hash_tasks(result.get("tasks", []))
     return jsonify(result)
 
 

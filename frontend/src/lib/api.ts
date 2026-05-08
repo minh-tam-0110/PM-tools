@@ -41,6 +41,7 @@ export type BridgeScrapeResult = {
   extractedAt: string
   count: number
   tasks: unknown[]
+  hash?: string
 }
 
 export const bridgeApi = {
