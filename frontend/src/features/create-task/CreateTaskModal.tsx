@@ -126,6 +126,33 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
               {done.id} — {done.title}
             </div>
           </div>
+        ) : team.length === 0 || sprints.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>📭</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 6 }}>
+              Chưa có data
+            </div>
+            <div style={{ fontSize: 13, color: T.textSec, lineHeight: 1.6, marginBottom: 16 }}>
+              Cần scrape Review 360° trước để có team và sprint.
+              <br />
+              Mở <b>🔗 Kết nối → BE Bridge</b> để login và scrape.
+            </div>
+            <button
+              onClick={onClose}
+              style={{
+                padding: '8px 20px',
+                borderRadius: 8,
+                border: `1px solid ${T.border}`,
+                background: T.surface,
+                color: T.text,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Đóng
+            </button>
+          </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <Field label="Tên task *">
