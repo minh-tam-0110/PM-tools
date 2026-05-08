@@ -8,7 +8,7 @@ export function ProgressBar({ value, color, h = 5 }: Props) {
       style={{
         flex: 1,
         height: h,
-        background: 'rgba(255,255,255,0.06)',
+        background: T.bgDim,
         borderRadius: h,
         overflow: 'hidden',
       }}

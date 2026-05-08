@@ -22,6 +22,8 @@ export const T = {
   infoSoft: 'rgba(96,165,250,0.1)',
   cyan: '#22D3EE',
   pink: '#F472B6',
+  bgDim: 'rgba(255,255,255,0.06)',
+  shadowLg: '0 8px 30px rgba(0,0,0,0.4)',
 } as const
 
 type StCfg = { c: string; bg: string; i: string }

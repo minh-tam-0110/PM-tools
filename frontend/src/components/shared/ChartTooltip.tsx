@@ -13,7 +13,7 @@ export function ChartTooltip({ active, payload, label }: Props) {
         borderRadius: 10,
         padding: '10px 14px',
         fontSize: 12,
-        boxShadow: '0 8px 30px rgba(0,0,0,.4)',
+        boxShadow: T.shadowLg,
       }}
     >
       <div style={{ fontWeight: 700, color: T.text, marginBottom: 6 }}>{label}</div>

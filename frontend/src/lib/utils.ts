@@ -2,11 +2,6 @@
 
 export const fmtDate = (d: Date): string => d.toISOString().split('T')[0]
 
-export const isOverdue = (deadline: string, status: string): boolean => {
-  if (!deadline || status === 'Done') return false
-  return deadline < fmtDate(new Date())
-}
-
 export const initials = (name: string): string =>
   (name || '??')
     .split(/\s+/)
