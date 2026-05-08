@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0C0F17;
+  --color-surface: #111827;
+  --color-card: #151C2C;
+  --color-card-alt: #1A2236;
+  --color-border: #1F2A40;
+  --color-border-light: #293550;
+  --color-text: #E8ECF4;
+  --color-text-sec: #8B95AB;
+  --color-text-muted: #566075;
+  --color-accent: #7C6AEF;
+  --color-accent-soft: rgba(124, 106, 239, 0.12);
+  --color-ok: #34D399;
+  --color-warn: #FBBF24;
+  --color-danger: #F87171;
+  --color-info: #60A5FA;
+
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1;
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-thumb { background: #293550; border-radius: 3px; }
+::selection { background: #7C6AEF; color: #fff; }
+
+/* Proportional viewport scaling — baseline 1280px wide.
+   Scale up for big monitors (1.6K, 2K, 4K), down for small. */
+:root { zoom: 1; }
+@media (max-width: 1100px) { :root { zoom: 0.92; } }
+@media (min-width: 1600px) { :root { zoom: 1.08; } }
+@media (min-width: 1920px) { :root { zoom: 1.16; } }
+@media (min-width: 2400px) { :root { zoom: 1.28; } }
+@media (min-width: 3200px) { :root { zoom: 1.5; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
