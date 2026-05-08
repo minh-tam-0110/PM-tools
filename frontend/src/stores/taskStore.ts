@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import type { CreateTaskInput, Member, Sprint, Task } from '@/lib/types'
 import { fmtDate } from '@/lib/utils'
-import { genSample, SAMPLE_SPRINTS, SAMPLE_TEAM } from '@/lib/sample'
 
 type State = {
   tasks: Task[]
@@ -13,12 +12,10 @@ type State = {
   remove: (id: string) => void
 }
 
-const TODAY = new Date()
-
 export const useTaskStore = create<State>((set, get) => ({
-  tasks: genSample(TODAY),
-  team: SAMPLE_TEAM,
-  sprints: SAMPLE_SPRINTS,
+  tasks: [],
+  team: [],
+  sprints: [],
   setAll: ({ tasks, team, sprints }) =>
     set((s) => ({
       tasks,

@@ -33,7 +33,7 @@ export type Task = {
   isOverdue: boolean
   progress: number
   sp: number
-  source: 'sample' | 'imported' | 'created'
+  source: 'imported' | 'created'
   description?: string
 }
 
@@ -44,7 +44,7 @@ export type Filters = {
   module: string
 }
 
-export type ConnSrc = 'sample' | 'iframe' | 'manual' | 'be'
+export type ConnSrc = 'none' | 'iframe' | 'manual' | 'be'
 export type IframeStatus = 'idle' | 'loading' | 'connected' | 'error'
 
 export type ImportPayload =

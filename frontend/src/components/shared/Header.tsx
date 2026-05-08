@@ -27,7 +27,7 @@ export function Header({ view, onView, onRefresh, onConnect, onCreate }: Props) 
     src === 'iframe' ? 'Live Connected'
     : src === 'be' ? 'BE Scraped'
     : src === 'manual' ? 'Manual Import'
-    : 'Sample Data'
+    : 'No Data'
 
   return (
     <div

@@ -47,14 +47,6 @@ export const prioC: Record<string, PrioC> = {
 
 export const STATUSES = ['Backlog', 'To Do', 'In Progress', 'Review', 'Done'] as const
 export const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'] as const
-export const MODULES = [
-  'Battle System',
-  'UI/HUD',
-  'Backend API',
-  'Matchmaking',
-  'Shop & IAP',
-  'Analytics',
-] as const
 
 /**
  * Origins được phép gửi postMessage cho data bridge. Validate trong useDataBridge.

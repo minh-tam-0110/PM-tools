@@ -13,35 +13,6 @@ type Props = {
   onClose: () => void
 }
 
-const SAMPLE = JSON.stringify(
-  [
-    {
-      id: 'TASK-001',
-      title: 'Fix login bug',
-      assignee: 'Minh Trí',
-      status: 'In Progress',
-      priority: 'High',
-      module: 'Backend API',
-      deadline: '2026-05-12',
-      sprint: 'Sprint 21',
-      sp: 5,
-    },
-    {
-      id: 'TASK-002',
-      title: 'Design new HUD',
-      assignee: 'Đức Anh',
-      status: 'To Do',
-      priority: 'Medium',
-      module: 'UI/HUD',
-      deadline: '2026-05-15',
-      sprint: 'Sprint 21',
-      sp: 3,
-    },
-  ],
-  null,
-  2,
-)
-
 type Tab = 'be' | 'iframe' | 'manual'
 
 export function ConnectionPanel({ iframeRef, onImportJSON, onClose }: Props) {
@@ -150,11 +121,10 @@ export function ConnectionPanel({ iframeRef, onImportJSON, onClose }: Props) {
             <textarea
               value={json}
               onChange={(e) => setJson(e.target.value)}
-              placeholder={SAMPLE}
+              placeholder='[{"id":"TASK-001","title":"...","assignee":"...","status":"To Do","priority":"High","module":"...","deadline":"YYYY-MM-DD","sprint":"...","sp":3}]'
               style={textarea}
             />
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
-              <button onClick={() => setJson(SAMPLE)} style={ghostBtn}>Xem mẫu</button>
               <button onClick={() => setRes(onImportJSON(json))} style={successBtn}>Import</button>
             </div>
             {res && (

@@ -1,6 +1,6 @@
-/** Create Task modal. Spec: docs/features/create-task.md */
-import { useState } from 'react'
-import { MODULES, PRIORITIES, STATUSES, T } from '@/lib/constants'
+/** Create Task modal. */
+import { useMemo, useState } from 'react'
+import { PRIORITIES, STATUSES, T } from '@/lib/constants'
 import { fmtDate } from '@/lib/utils'
 import { useConnStore, useTaskStore } from '@/stores'
 import type { Priority, Status, Task } from '@/lib/types'
@@ -11,11 +11,16 @@ type Props = {
 }
 
 export function CreateTaskModal({ iframeRef, onClose }: Props) {
+  const tasks = useTaskStore((s) => s.tasks)
   const team = useTaskStore((s) => s.team)
   const sprints = useTaskStore((s) => s.sprints)
   const addTask = useTaskStore((s) => s.add)
   const src = useConnStore((s) => s.src)
 
+  const modules = useMemo(
+    () => [...new Set(tasks.map((t) => t.module).filter(Boolean))],
+    [tasks],
+  )
   const activeSp = sprints.find((s) => s.status === 'active') ?? sprints[0]
 
   const [f, sF] = useState({
@@ -24,7 +29,7 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
     sprintId: activeSp?.id ?? 's0',
     status: 'To Do' as Status,
     priority: 'Medium' as Priority,
-    module: MODULES[0] as string,
+    module: modules[0] ?? '',
     deadline: fmtDate(new Date(Date.now() + 7 * 864e5)),
     sp: 3,
     desc: '',
@@ -170,12 +175,19 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
               </Field>
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
-              <Field label="Module" flex>
-                <select value={f.module} onChange={(e) => sF((p) => ({ ...p, module: e.target.value }))} style={inp}>
-                  {MODULES.map((m) => (
-                    <option key={m}>{m}</option>
+              <Field label="Project" flex>
+                <input
+                  value={f.module}
+                  onChange={(e) => sF((p) => ({ ...p, module: e.target.value }))}
+                  list="module-options"
+                  placeholder="Tên project"
+                  style={inp}
+                />
+                <datalist id="module-options">
+                  {modules.map((m) => (
+                    <option key={m} value={m} />
                   ))}
-                </select>
+                </datalist>
               </Field>
               <Field label="Story Points" flex>
                 <select value={f.sp} onChange={(e) => sF((p) => ({ ...p, sp: Number(e.target.value) }))} style={inp}>

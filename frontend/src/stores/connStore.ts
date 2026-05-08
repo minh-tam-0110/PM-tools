@@ -11,7 +11,7 @@ type State = {
 }
 
 export const useConnStore = create<State>((set) => ({
-  src: 'sample',
+  src: 'none',
   iframeSt: 'idle',
   lastSync: null,
   setSrc: (src) => set({ src }),
