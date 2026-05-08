@@ -5,6 +5,8 @@ import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Read .env from repo root, not frontend/, so BE + FE share one config file.
+  envDir: fileURLToPath(new URL('..', import.meta.url)),
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

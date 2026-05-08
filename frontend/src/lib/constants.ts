@@ -54,10 +54,14 @@ export const MODULES = [
   'Analytics',
 ] as const
 
-/** Origins được phép gửi postMessage cho data bridge. Validate trong useDataBridge. */
-export const ALLOWED_ORIGINS = [
-  'https://wolffun-review.web.app',
-  'https://wolffun-review.firebaseapp.com',
-] as const
+/**
+ * Origins được phép gửi postMessage cho data bridge. Validate trong useDataBridge.
+ * Đọc từ `.env` (VITE_ALLOWED_ORIGINS, comma-separated). Build sẽ fail nếu thiếu.
+ */
+const _origins = import.meta.env.VITE_ALLOWED_ORIGINS
+if (!_origins) throw new Error('Missing VITE_ALLOWED_ORIGINS in .env')
+export const ALLOWED_ORIGINS = _origins.split(',').map((s) => s.trim()).filter(Boolean)
 
-export const REVIEW_360_URL = 'https://wolffun-review.web.app/my-work'
+const _reviewUrl = import.meta.env.VITE_REVIEW_360_URL
+if (!_reviewUrl) throw new Error('Missing VITE_REVIEW_360_URL in .env')
+export const REVIEW_360_URL = _reviewUrl

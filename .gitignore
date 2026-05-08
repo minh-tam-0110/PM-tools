@@ -1,7 +1,6 @@
 __pycache__/
 *.pyc
 .venv/
-.env
 
 node_modules/
 frontend/dist/
@@ -14,8 +13,12 @@ backend/data/
 .idea/
 .vscode/
 
-# Wolffun-specific — config, docs, branding
-backend/features/bridge/bridge_config.py
+# Secrets / env
+.env
+.env.local
+.env.*.local
+
+# Wolffun-specific — internal docs, branding, original source
 CLAUDE.md
 PROJECT.md
 README.md

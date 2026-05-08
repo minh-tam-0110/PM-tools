@@ -6,7 +6,12 @@ import time
 import webbrowser
 from pathlib import Path
 
-from backend.app import create_app
+from dotenv import load_dotenv
+
+# Load `.env` at root BEFORE importing backend (bridge_config reads env at import).
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
+from backend.app import create_app  # noqa: E402
 
 
 def _open_browser(url: str, delay: float = 1.0) -> None:
