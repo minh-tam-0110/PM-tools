@@ -2,10 +2,11 @@
 import hashlib
 import json
 import logging
+from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify
 
-from ..bridge_config import LAST_DOM_DUMP_PATH
+from ..bridge_config import LAST_DOM_DUMP_PATH, LAST_SCRAPE_PATH
 from ..services import scraper
 
 
@@ -29,6 +30,27 @@ def _hash_tasks(tasks: list[dict]) -> str:
     )
     blob = json.dumps(canon, ensure_ascii=False, sort_keys=True).encode("utf-8")
     return hashlib.sha256(blob).hexdigest()[:16]
+
+
+def _save_last_scrape(result: dict) -> None:
+    """Persist scrape result to disk. Best-effort — errors logged, không raise."""
+    try:
+        path = Path(LAST_SCRAPE_PATH)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        logger.warning("failed to persist last scrape", exc_info=True)
+
+
+def _load_last_scrape() -> dict | None:
+    path = Path(LAST_SCRAPE_PATH)
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.warning("failed to load last scrape", exc_info=True)
+        return None
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +85,17 @@ def scrape():
         logger.exception("scrape_my_work failed")
         return jsonify({"error": str(exc)}), 500
     result["hash"] = _hash_tasks(result.get("tasks", []))
+    _save_last_scrape(result)
     return jsonify(result)
+
+
+@bp.get("/api/bridge/last")
+def last_scrape():
+    """Trả về kết quả scrape gần nhất (cached). 204 nếu chưa có."""
+    cached = _load_last_scrape()
+    if cached is None:
+        return ("", 204)
+    return jsonify(cached)
 
 
 @bp.post("/api/bridge/dump-html")

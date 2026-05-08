@@ -17,6 +17,7 @@ ALLOWED_ORIGINS = [
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 PROFILE_DIR = str(DATA_DIR / "review360_profile")
 LAST_DOM_DUMP_PATH = str(DATA_DIR / "review360_last_dom.html")
+LAST_SCRAPE_PATH = str(DATA_DIR / "last_scrape.json")
 
 LOGIN_TIMEOUT_MS = 5 * 60 * 1000      # 5 phút cho user nhập credential
 SCRAPE_TIMEOUT_MS = 45 * 1000

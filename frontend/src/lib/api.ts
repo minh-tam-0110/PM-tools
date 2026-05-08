@@ -48,5 +48,12 @@ export const bridgeApi = {
   status: () => http<BridgeStatus>('GET', '/bridge/status'),
   login: () => http<{ ok: boolean; saved_to: string }>('POST', '/bridge/login'),
   scrape: () => http<BridgeScrapeResult>('POST', '/bridge/scrape'),
+  /** GET cached last scrape. Trả null nếu BE chưa có (HTTP 204). */
+  last: async (): Promise<BridgeScrapeResult | null> => {
+    const r = await fetch(BASE + '/bridge/last')
+    if (r.status === 204) return null
+    if (!r.ok) throw new ApiError(r.status, await r.text())
+    return (await r.json()) as BridgeScrapeResult
+  },
   dumpHtml: () => http<{ url: string; bytes: number; saved_to: string }>('POST', '/bridge/dump-html'),
 }
