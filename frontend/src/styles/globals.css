@@ -43,6 +43,10 @@ html, body, #root {
 @media (min-width: 2400px) { :root { zoom: 1.28; } }
 @media (min-width: 3200px) { :root { zoom: 1.5; } }
 
+@keyframes spin-ring {
+  to { transform: rotate(360deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

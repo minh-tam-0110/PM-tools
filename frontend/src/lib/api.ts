@@ -44,8 +44,17 @@ export type BridgeScrapeResult = {
   hash?: string
 }
 
+export type BgWorkerStatus = {
+  enabled: boolean
+  interval: number
+  last_run: string | null
+  last_error: string | null
+  in_progress: boolean
+}
+
 export const bridgeApi = {
   status: () => http<BridgeStatus>('GET', '/bridge/status'),
+  bgStatus: () => http<BgWorkerStatus>('GET', '/bridge/bg-status'),
   login: () => http<{ ok: boolean; saved_to: string }>('POST', '/bridge/login'),
   scrape: () => http<BridgeScrapeResult>('POST', '/bridge/scrape'),
   /** GET cached last scrape. Trả null nếu BE chưa có (HTTP 204). */

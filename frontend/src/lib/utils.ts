@@ -1,6 +1,13 @@
 /** Helpers nhỏ tái dùng. */
 
-export const fmtDate = (d: Date): string => d.toISOString().split('T')[0]
+export const fmtDate = (d: Date): string => {
+  // Dùng local date components — KHÔNG dùng toISOString(): nó convert sang UTC nên
+  // user ở GMT+7 vào sáng sớm sẽ bị shift sang ngày hôm trước (bug calendar key mismatch).
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 export const initials = (name: string): string =>
   (name || '??')

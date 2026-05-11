@@ -82,9 +82,11 @@ export function TeamView() {
                       fontSize: 12,
                     }}
                   >
-                    <span style={{ color: stOf(t.status).c, fontSize: 12 }}>{stOf(t.status).i}</span>
                     <span style={{ color: T.textMuted, fontWeight: 600, minWidth: 42 }}>{t.id}</span>
                     <span style={{ flex: 1, color: T.text, fontWeight: 500 }}>{t.title}</span>
+                    <Badge color={stOf(t.status).c} bg={stOf(t.status).bg} small>
+                      {stOf(t.status).i} {t.status}
+                    </Badge>
                     <Badge color={prioC[t.priority]?.c ?? T.textMuted} bg={prioC[t.priority]?.bg ?? T.surface} small>
                       {t.priority}
                     </Badge>

@@ -49,6 +49,7 @@ export function CalendarView() {
 
   const ft = useMemo(() => applyFilters(tasks, filters, search), [tasks, filters, search])
   const byDate = useMemo(() => _.groupBy(ft, 'deadline'), [ft])
+  const noDeadlineCount = (byDate[''] ?? []).length
 
   const wk = getWeek(base)
   const mo = base.getMonth()
@@ -98,6 +99,25 @@ export function CalendarView() {
               Hôm nay
             </button>
           </div>
+
+          {noDeadlineCount > 0 && (
+            <span
+              title="Những task này sẽ không xuất hiện trong calendar"
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: T.warn,
+                background: T.warnSoft,
+                border: `1px solid ${T.warn}`,
+                padding: '4px 9px',
+                borderRadius: 6,
+                marginRight: 'auto',
+                marginLeft: 8,
+              }}
+            >
+              ⚠ {noDeadlineCount} task không có deadline
+            </span>
+          )}
 
           <div
             style={{

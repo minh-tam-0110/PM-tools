@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import { bridgeApi, type BgWorkerStatus } from '@/lib/api'
 import { T } from '@/lib/constants'
 import { useConnStore, useFilterStore } from '@/stores'
 import { TabBar, type TabId } from '@/components/layout/TabBar'
@@ -17,6 +19,38 @@ export function Header({ view, onView, onRefresh, onConnect, onCreate }: Props) 
   const search = useFilterStore((s) => s.search)
   const setSearch = useFilterStore((s) => s.setSearch)
   const busy = iframeSt === 'loading'
+
+  const [bgSt, setBgSt] = useState<BgWorkerStatus | null>(null)
+  const [countdown, setCountdown] = useState<number | null>(null)
+
+  // Poll bg-worker status every 10s
+  useEffect(() => {
+    const poll = () => bridgeApi.bgStatus().then(setBgSt).catch(() => {})
+    poll()
+    const id = setInterval(poll, 10_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Tick countdown every 1s from last_run + interval
+  useEffect(() => {
+    if (!bgSt?.last_run || !bgSt.interval) { setCountdown(null); return }
+    const tick = () => {
+      const next = new Date(bgSt.last_run!).getTime() + bgSt.interval * 1000
+      setCountdown(Math.max(0, Math.round((next - Date.now()) / 1000)))
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [bgSt?.last_run, bgSt?.interval])
+
+  const scraping = busy || (bgSt?.in_progress ?? false)
+
+  const fmtCountdown = (s: number) => {
+    if (s <= 0) return 'đang chờ...'
+    const m = Math.floor(s / 60)
+    const sec = s % 60
+    return m > 0 ? `${m}m ${sec}s` : `${sec}s`
+  }
 
   const dotColor =
     src === 'iframe' ? T.ok
@@ -116,24 +150,51 @@ export function Header({ view, onView, onRefresh, onConnect, onCreate }: Props) 
                 ⌕
               </span>
             </div>
-            <button
-              onClick={onRefresh}
-              disabled={busy}
-              title="Re-scrape Review 360°"
-              style={{
-                padding: '7px 14px',
-                borderRadius: 8,
-                border: `1px solid ${T.border}`,
-                background: T.surface,
-                color: T.textSec,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: busy ? 'not-allowed' : 'pointer',
-                opacity: busy ? 0.6 : 1,
-              }}
-            >
-              {busy ? '⟳ Đang scrape...' : '↻ Refresh'}
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+              <div style={{ position: 'relative', display: 'inline-flex' }}>
+                {scraping && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: -3,
+                      borderRadius: 11,
+                      border: `2px solid transparent`,
+                      borderTopColor: T.info,
+                      borderRightColor: T.info,
+                      animation: 'spin-ring 0.75s linear infinite',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )}
+                <button
+                  onClick={onRefresh}
+                  disabled={scraping}
+                  title="Re-scrape Review 360°"
+                  style={{
+                    padding: '7px 14px',
+                    borderRadius: 8,
+                    border: `1px solid ${scraping ? T.info : T.border}`,
+                    background: scraping ? 'rgba(96,165,250,0.08)' : T.surface,
+                    color: scraping ? T.info : T.textSec,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: scraping ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {scraping ? '⟳ Scraping...' : '↻ Refresh'}
+                </button>
+              </div>
+              {!scraping && countdown !== null && (
+                <span style={{ fontSize: 10, color: T.textMuted, whiteSpace: 'nowrap' }}>
+                  next: {fmtCountdown(countdown)}
+                </span>
+              )}
+              {scraping && (
+                <span style={{ fontSize: 10, color: T.info, whiteSpace: 'nowrap' }}>
+                  đang scrape...
+                </span>
+              )}
+            </div>
             <button
               onClick={onConnect}
               style={{
