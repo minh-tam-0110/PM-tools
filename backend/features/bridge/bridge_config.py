@@ -22,6 +22,11 @@ LAST_SCRAPE_PATH = str(DATA_DIR / "last_scrape.json")
 LOGIN_TIMEOUT_MS = 5 * 60 * 1000      # 5 phút cho user nhập credential
 SCRAPE_TIMEOUT_MS = 45 * 1000
 
+# Background worker — set 0 to disable
+BG_SCRAPE_INTERVAL_SEC = int(os.environ.get("BRIDGE_BG_SCRAPE_INTERVAL_SEC", "300"))
+# Manual /scrape returns cached result if cache is newer than this many seconds
+CACHE_MAX_AGE_SEC = int(os.environ.get("BRIDGE_CACHE_MAX_AGE_SEC", "60"))
+
 # Heuristic login-done: URL chứa fragment này nghĩa là đã đăng nhập.
 LOGIN_DONE_URL_FRAGMENT = "/my-work"
 

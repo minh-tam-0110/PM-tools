@@ -14,6 +14,7 @@ Flow:
 from __future__ import annotations
 
 import logging
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,6 +36,9 @@ from ..bridge_config import (
 )
 
 logger = logging.getLogger(__name__)
+
+_scrape_lock = threading.Lock()
+scrape_lock = _scrape_lock  # exported — callers acquire non-blocking
 
 
 # ── Extract JS ────────────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 """Bridge feature: Playwright scrape Review 360° → canonical tasks JSON."""
+import os
 from pathlib import Path
 
 from .bridge_config import ALLOWED_ORIGINS, DATA_DIR, PROFILE_DIR
@@ -18,3 +19,8 @@ def register(app):
     app.config.setdefault("BRIDGE_PROFILE_DIR", PROFILE_DIR)
     from .routes import scrape
     app.register_blueprint(scrape.bp)
+    # Werkzeug reloader forks: chỉ start worker trong child (hoặc khi không debug)
+    # — không thì 2 threads scrape song song.
+    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        from .services import bg_worker
+        bg_worker.start(app.config["BRIDGE_PROFILE_DIR"])

@@ -1,56 +1,13 @@
 """Bridge endpoints: login (headed), scrape (headless), dump (debug), status."""
-import hashlib
-import json
 import logging
-from pathlib import Path
+from datetime import datetime, timezone
 
-from flask import Blueprint, current_app, jsonify
+from flask import Blueprint, current_app, jsonify, request
 
-from ..bridge_config import LAST_DOM_DUMP_PATH, LAST_SCRAPE_PATH
-from ..services import scraper
-
-
-def _hash_tasks(tasks: list[dict]) -> str:
-    """Stable hash của task list — sort theo id, chỉ field nội dung user-facing."""
-    canon = sorted(
-        (
-            {
-                "id": t.get("id", ""),
-                "title": t.get("title", ""),
-                "status": t.get("status", ""),
-                "module": t.get("module", ""),
-                "assignee": t.get("assignee", ""),
-                "deadline": t.get("deadline", ""),
-                "priority": t.get("priority", ""),
-                "sprint": t.get("sprint", ""),
-            }
-            for t in tasks
-        ),
-        key=lambda x: x["id"],
-    )
-    blob = json.dumps(canon, ensure_ascii=False, sort_keys=True).encode("utf-8")
-    return hashlib.sha256(blob).hexdigest()[:16]
-
-
-def _save_last_scrape(result: dict) -> None:
-    """Persist scrape result to disk. Best-effort — errors logged, không raise."""
-    try:
-        path = Path(LAST_SCRAPE_PATH)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
-    except OSError:
-        logger.warning("failed to persist last scrape", exc_info=True)
-
-
-def _load_last_scrape() -> dict | None:
-    path = Path(LAST_SCRAPE_PATH)
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        logger.warning("failed to load last scrape", exc_info=True)
-        return None
+from ..bridge_config import CACHE_MAX_AGE_SEC, LAST_DOM_DUMP_PATH
+from ..services import bg_worker, scraper
+from ..services.cache import hash_tasks, load_last_scrape, save_last_scrape
+from ..services.scraper import scrape_lock
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +34,33 @@ def login():
 
 @bp.post("/api/bridge/scrape")
 def scrape():
+    """Scrape /my-work — returns cached result if fresh enough, unless force=true."""
+    force = request.args.get("force") == "true"
+
+    if not force:
+        cached = load_last_scrape()
+        if cached is not None:
+            extracted_at = cached.get("extractedAt")
+            if extracted_at:
+                try:
+                    ts = datetime.fromisoformat(extracted_at)
+                    age = (datetime.now(timezone.utc) - ts).total_seconds()
+                    if age <= CACHE_MAX_AGE_SEC:
+                        cached["from_cache"] = True
+                        return jsonify(cached)
+                except (ValueError, TypeError):
+                    pass  # malformed timestamp — fall through to live scrape
+
+    # Cache stale or force=true — try to acquire scrape lock
+    acquired = scrape_lock.acquire(blocking=False)
+    if not acquired:
+        # Background worker is currently scraping
+        cached = load_last_scrape()
+        if cached is not None:
+            cached["from_cache"] = True
+            return jsonify(cached)
+        return jsonify({"error": "scrape in progress, try again"}), 503
+
     try:
         result = scraper.scrape_my_work(current_app.config["BRIDGE_PROFILE_DIR"])
     except RuntimeError as exc:
@@ -84,18 +68,28 @@ def scrape():
     except Exception as exc:
         logger.exception("scrape_my_work failed")
         return jsonify({"error": str(exc)}), 500
-    result["hash"] = _hash_tasks(result.get("tasks", []))
-    _save_last_scrape(result)
+    finally:
+        scrape_lock.release()
+
+    result["hash"] = hash_tasks(result.get("tasks", []))
+    result["from_cache"] = False
+    save_last_scrape(result)
     return jsonify(result)
 
 
 @bp.get("/api/bridge/last")
 def last_scrape():
     """Trả về kết quả scrape gần nhất (cached). 204 nếu chưa có."""
-    cached = _load_last_scrape()
+    cached = load_last_scrape()
     if cached is None:
         return ("", 204)
     return jsonify(cached)
+
+
+@bp.get("/api/bridge/bg-status")
+def bg_status():
+    """Return background worker state."""
+    return jsonify(bg_worker.get_status())
 
 
 @bp.post("/api/bridge/dump-html")
