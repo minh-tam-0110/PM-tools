@@ -32,10 +32,35 @@ def login():
     return jsonify(result)
 
 
+@bp.post("/api/bridge/active-sprints/invalidate")
+def invalidate_active_sprints():
+    """Force re-collect active sprints map on next scrape (TTL bypass)."""
+    from pathlib import Path
+    from ..bridge_config import ACTIVE_SPRINTS_CACHE_PATH
+    p = Path(ACTIVE_SPRINTS_CACHE_PATH)
+    existed = p.exists()
+    if existed:
+        try:
+            p.unlink()
+        except OSError as exc:
+            return jsonify({"error": str(exc)}), 500
+    return jsonify({"ok": True, "removed": existed})
+
+
 @bp.post("/api/bridge/scrape")
 def scrape():
-    """Scrape /my-work — returns cached result if fresh enough, unless force=true."""
+    """Scrape /my-work — returns cached result if fresh enough, unless force=true.
+
+    Query param `refresh_active=true` cũng invalidate active-sprints cache trước scrape.
+    """
     force = request.args.get("force") == "true"
+    if request.args.get("refresh_active") == "true":
+        from pathlib import Path
+        from ..bridge_config import ACTIVE_SPRINTS_CACHE_PATH
+        try:
+            Path(ACTIVE_SPRINTS_CACHE_PATH).unlink(missing_ok=True)
+        except OSError:
+            pass
 
     if not force:
         cached = load_last_scrape()
@@ -92,11 +117,30 @@ def bg_status():
     return jsonify(bg_worker.get_status())
 
 
+@bp.post("/api/bridge/dump-sprint-dropdowns")
+def dump_sprint_dropdowns():
+    """Debug: per-project sprint dropdown items + chosen sprint logic trace."""
+    try:
+        result = scraper.dump_sprint_dropdowns(current_app.config["BRIDGE_PROFILE_DIR"])
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 503
+    except Exception as exc:
+        logger.exception("dump_sprint_dropdowns failed")
+        return jsonify({"error": str(exc)}), 500
+    return jsonify(result)
+
+
 @bp.post("/api/bridge/dump-html")
 def dump_html():
-    """Lưu raw DOM /my-work ra file để debug selector."""
+    """Lưu raw DOM ra file để debug selector.
+
+    Query: ?nav=Project,Dự án của tôi,Sprint Release  → click text labels theo thứ tự
+    sau khi vào /my-work, rồi dump page hiện tại.
+    """
+    nav_q = request.args.get("nav", "")
+    nav = [s.strip() for s in nav_q.split(",") if s.strip()] if nav_q else None
     try:
-        result = scraper.dump_html(current_app.config["BRIDGE_PROFILE_DIR"], LAST_DOM_DUMP_PATH)
+        result = scraper.dump_html(current_app.config["BRIDGE_PROFILE_DIR"], LAST_DOM_DUMP_PATH, nav=nav)
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 503
     except Exception as exc:

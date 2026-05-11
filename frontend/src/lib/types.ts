@@ -45,12 +45,27 @@ export type Filters = {
   statuses: string[]
 }
 
+/** Per-project group — BE đã sắp xếp, FE chỉ đọc. */
+export type ProjectGroup = {
+  name: string
+  sprints: Sprint[]
+  members: Member[]
+  /** Sprint ID đang "In Progress" (lấy từ /my-projects Sprint Release panel). Undefined nếu không xác định. */
+  activeSprintId?: string
+}
+
 export type ConnSrc = 'none' | 'iframe' | 'manual' | 'be'
 export type IframeStatus = 'idle' | 'loading' | 'connected' | 'error'
 
 export type ImportPayload =
   | unknown[]
-  | { tasks?: unknown[]; team?: unknown[]; sprints?: unknown[] }
+  | {
+      tasks?: unknown[]
+      team?: unknown[]
+      sprints?: unknown[]
+      projects?: unknown[]
+      activeSprintsMap?: Record<string, string>
+    }
 
 export type CreateTaskInput = {
   title: string

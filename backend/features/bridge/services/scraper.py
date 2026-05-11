@@ -14,6 +14,7 @@ Flow:
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -27,9 +28,11 @@ from playwright.sync_api import (
 )
 
 from ..bridge_config import (
+    DEBUG,
     DEFAULT_UA,
     LOGIN_DONE_URL_FRAGMENT,
     LOGIN_TIMEOUT_MS,
+    MY_PROJECTS_URL,
     MY_WORK_URL,
     REVIEW_360_URL,
     SCRAPE_TIMEOUT_MS,
@@ -39,6 +42,12 @@ logger = logging.getLogger(__name__)
 
 _scrape_lock = threading.Lock()
 scrape_lock = _scrape_lock  # exported — callers acquire non-blocking
+
+
+def _slug(s: str) -> str:
+    """Stable slug for IDs: lowercase alnum, others → underscore."""
+    return re.sub(r"[^a-z0-9]+", "_", (s or "").lower()).strip("_") or "x"
+
 
 
 # ── Extract JS ────────────────────────────────────────────────────────────────
@@ -402,25 +411,135 @@ def _open_project_dropdown(page) -> None:
     _wait_popover_stable(page)
 
 
+_last_sprint_popover_sig: dict = {"v": None}
+
+
 def _open_sprint_dropdown(page) -> None:
-    """Click sprint dropdown trong DialogContent."""
+    """Click sprint dropdown trong DialogContent. Đợi popover items refresh
+    (so với signature lần mở trước) để tránh đọc items stale từ project trước.
+    """
     page.locator(
         '.MuiDialog-paper button.MuiButton-outlined:has(.MuiButton-endIcon)'
     ).nth(1).click(timeout=5000)
-    page.wait_for_selector(_ITEM_SELECTOR, timeout=5000)
+    new_sig = _wait_sprint_popover_refresh(page, _last_sprint_popover_sig["v"])
+    _last_sprint_popover_sig["v"] = new_sig
     _wait_popover_stable(page)
 
 
 def _read_dropdown_state(page) -> list[dict]:
-    """Đọc state của items trong popover hiện tại."""
+    """Đọc state của items trong popover hiện tại.
+
+    `html` field giúp downstream detect status badge (e.g. chip "In Progress").
+    """
     return page.evaluate(
         """
         () => Array.from(document.querySelectorAll('.MuiPopover-root .MuiListItemButton-root'))
           .map(it => ({
             text: (it.innerText || '').trim(),
+            html: it.innerHTML,
             checked: !!(it.querySelector('input[type="checkbox"]')?.checked),
           }))
         """
+    )
+
+
+_SPRINT_NUM_RE = re.compile(r"sprint\s*(\d+)", re.I)
+# Workload format trong item: "Sprint 1\n\n50h/85h" hoặc "...\n195.5h/294h"
+_WORKLOAD_RE = re.compile(r"(\d+(?:\.\d+)?)\s*h\s*/\s*(\d+(?:\.\d+)?)\s*h")
+
+
+def _parse_workload(text: str) -> tuple[float, float] | None:
+    """Extract (used, budget) hours từ item text. Return None nếu không parse được."""
+    m = _WORKLOAD_RE.search(text or "")
+    if not m:
+        return None
+    try:
+        return float(m.group(1)), float(m.group(2))
+    except ValueError:
+        return None
+
+
+_BUCKET_UNASSIGNED_RE = re.compile(r"chưa\s*phân|unassigned|backlog", re.I)
+
+
+def _first_line(text: str) -> str:
+    """Lấy line đầu của item text — sprint name không kèm workload."""
+    return (text or "").split("\n", 1)[0].strip()
+
+
+def _sprint_num(text: str) -> int:
+    """Sprint number parsed từ FIRST LINE only (tránh match số trong workload "62h").
+
+    -1 nếu line đầu không có "Sprint N" pattern (e.g. "Hotfix 1", "[IAP] - Phase 1").
+    """
+    m = _SPRINT_NUM_RE.search(_first_line(text))
+    return int(m.group(1)) if m else -1
+
+
+def _is_unassigned_bucket(text: str) -> bool:
+    """Item dạng "Chưa phân Sprint" / "Unassigned" / "Backlog" — không phải sprint thật."""
+    return bool(_BUCKET_UNASSIGNED_RE.search(_first_line(text)))
+
+
+def _detect_active_idx(state: list[dict]) -> int | None:
+    """Detect active sprint từ workload pattern.
+
+    Logic: sprint "đang chạy" có `0 < used < budget` (e.g. 50h/85h = đang dùng).
+    Sprint hoàn thành: used == budget (e.g. 100h/100h). Sprint chưa start: 0h/0h.
+
+    Trong các candidates incomplete:
+      - Ưu tiên cái có sprint_num cao nhất (latest "Sprint N")
+      - Nếu không có "Sprint N" nào → pick theo idx thấp nhất (top dropdown thường là latest)
+
+    Bỏ qua "Chưa phân Sprint" / "Unassigned" — không phải sprint thật.
+    """
+    candidates: list[tuple[int, int, int]] = []  # (-has_num, -num, idx) — sort tăng dần
+    for i, s in enumerate(state):
+        text = s.get("text", "")
+        if _is_unassigned_bucket(text):
+            continue
+        wl = _parse_workload(text)
+        if wl is None:
+            continue
+        used, budget = wl
+        if not (0 < used < budget):
+            continue
+        num = _sprint_num(text)
+        # Sort key: prefer items có "Sprint N" (has_num=1) over non-numeric;
+        # rồi pick num cao nhất; rồi idx thấp nhất.
+        has_num = 1 if num >= 0 else 0
+        candidates.append((-has_num, -num, i))
+    if not candidates:
+        return None
+    candidates.sort()
+    return candidates[0][2]
+
+
+def _wait_sprint_popover_refresh(page, prev_signature: str | None) -> str:
+    """Đợi sprint popover items đổi (signature based on item count + text hash).
+
+    Trả về signature mới để caller track tiếp.
+    """
+    page.wait_for_selector(_ITEM_SELECTOR, timeout=5000)
+    try:
+        page.wait_for_function(
+            """(prev) => {
+              const items = Array.from(document.querySelectorAll('.MuiPopover-root .MuiListItemButton-root'));
+              if (items.length === 0) return false;
+              const sig = items.length + ':' + items.map(it => (it.innerText || '').slice(0, 30)).join('|');
+              return prev === null || sig !== prev;
+            }""",
+            arg=prev_signature,
+            timeout=3000,
+            polling=200,
+        )
+    except PWTimeout:
+        pass
+    return page.evaluate(
+        """() => {
+          const items = Array.from(document.querySelectorAll('.MuiPopover-root .MuiListItemButton-root'));
+          return items.length + ':' + items.map(it => (it.innerText || '').slice(0, 30)).join('|');
+        }"""
     )
 
 
@@ -446,44 +565,252 @@ def _select_only_project(page, target: str) -> None:
     page.keyboard.press("Escape")
     _close_popover(page)
     _wait_dialog_table_settle(page)
+    # Note: KHÔNG reset _last_sprint_popover_sig — giữ sig của project trước
+    # để _open_sprint_dropdown đợi items khác (= mới của project hiện tại).
 
 
-def _select_first_sprint(page) -> str | None:
-    """Open sprint dropdown, deselect tất cả checked, pick first real sprint."""
+# JS extractor cho panel Sprint Release sau khi click card.
+# Tìm heading "Sprint Release - <ProjectName>", rồi tìm sprint có status "In Progress" gần nhất.
+# Robust: dùng innerText (gộp text children), không yêu cầu leaf-only.
+_EXTRACT_ACTIVE_SPRINT_JS = r"""
+(() => {
+  // Scope: dialog Sprint Release
+  const dialog = document.querySelector('.MuiDialog-root');
+  if (!dialog) return { error: 'no MuiDialog' };
+
+  // Project name
+  const text = dialog.innerText || '';
+  const headingMatch = text.match(/Sprint Release - (.+?)(?:\n|$)/);
+  if (!headingMatch) return { error: 'no heading in dialog' };
+  const projectName = headingMatch[1].trim();
+
+  // Parse text lines: tìm "In Progress", lấy line ngay trước = sprint name.
+  // Cấu trúc panel:
+  //   Sprint Release - <Project>
+  //   Sprint Releases (N)
+  //   [Hot Fix] [Tạo Sprint mới]  <- action buttons
+  //   <sprint name>               <- title
+  //   In Progress                 <- status badge
+  //   <platform>
+  //   Release: ...
+  const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+  const NOISE = new Set([
+    'Hot Fix', 'Tạo Sprint mới', 'Sprint Release', 'Sprint Releases',
+    'In Progress', 'Done', 'Completed', 'Upcoming',
+    'Android', 'iOS', 'Web',
+  ]);
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i] === 'In Progress') {
+      const prev = lines[i - 1];
+      if (prev && !NOISE.has(prev) && !/^Sprint Releases? \(/.test(prev) &&
+          !/^Release:/.test(prev) && !prev.startsWith('Sprint Release - ')) {
+        return { projectName, activeSprint: prev };
+      }
+    }
+  }
+  return { projectName, activeSprint: null, error: 'no sprint name before In Progress' };
+})()
+"""
+
+
+def _close_mui_dialog(page) -> None:
+    """Đóng MuiDialog (panel Sprint Release) bằng Escape + đợi vanish."""
+    page.keyboard.press("Escape")
+    try:
+        page.wait_for_function(
+            "() => !document.querySelector('.MuiDialog-root')",
+            timeout=3000,
+        )
+    except PWTimeout:
+        # Fallback: click backdrop
+        try:
+            page.locator('.MuiBackdrop-root').first.click(timeout=1500, force=True)
+            page.wait_for_function(
+                "() => !document.querySelector('.MuiDialog-root')",
+                timeout=2000,
+            )
+        except Exception:
+            logger.debug("MuiDialog did not close")
+
+
+_active_sprints_diag: dict = {}
+
+
+def _collect_active_sprints(page) -> dict[str, str]:
+    """Navigate /my-projects → click mỗi card's "Sprint Release" → đọc sprint In Progress.
+
+    Returns mapping {project_name: sprint_name}. Best-effort: project nào fail thì bỏ qua.
+
+    Trước khi vào /my-projects, prime session bằng /my-work — direct goto /my-projects
+    đôi khi mất Firebase auth state trong headless context.
+    """
+    global _active_sprints_diag
+    _active_sprints_diag = {"stage": "init"}
+    mapping: dict[str, str] = {}
+    try:
+        # Prime /my-work để xác lập SPA router + session
+        page.goto(MY_WORK_URL, wait_until="domcontentloaded", timeout=SCRAPE_TIMEOUT_MS)
+        _active_sprints_diag["after_my_work_url"] = page.url
+        if "/my-work" not in page.url:
+            _active_sprints_diag["stage"] = "redirected_from_my_work"
+            return mapping
+        try:
+            page.wait_for_load_state("networkidle", timeout=5000)
+        except PWTimeout:
+            pass
+        # Click-nav: Projects → Dự án của tôi (SPA route change, không reload)
+        for label in ("Projects", "Dự án của tôi"):
+            try:
+                page.get_by_text(label, exact=True).first.click(timeout=8000)
+                _active_sprints_diag[f"clicked_{label}"] = True
+            except Exception as exc:
+                _active_sprints_diag["stage"] = f"click_failed_{label}"
+                _active_sprints_diag["click_error"] = str(exc)
+                return mapping
+            try:
+                page.wait_for_load_state("networkidle", timeout=5000)
+            except PWTimeout:
+                pass
+        _active_sprints_diag["after_nav_url"] = page.url
+        if "/my-projects" not in page.url:
+            _active_sprints_diag["stage"] = "not_at_my_projects"
+            return mapping
+        try:
+            page.wait_for_selector('text="Sprint Release"', timeout=8000)
+        except PWTimeout:
+            _active_sprints_diag["stage"] = "no_sprint_release_button"
+            return mapping
+    except Exception as exc:
+        _active_sprints_diag["stage"] = "nav_exception"
+        _active_sprints_diag["error"] = str(exc)
+        return mapping
+
+    buttons = page.get_by_text("Sprint Release", exact=True)
+    try:
+        n = buttons.count()
+    except Exception:
+        n = 0
+    _active_sprints_diag["button_count"] = n
+    _active_sprints_diag["stage"] = "iterating"
+    logger.info("found %d Sprint Release buttons on /my-projects", n)
+
+    iter_log: list[dict] = []
+    for i in range(n):
+        step: dict = {"i": i}
+        try:
+            # Re-locate button mỗi vòng vì DOM có thể re-render
+            btn = page.get_by_text("Sprint Release", exact=True).nth(i)
+            btn.scroll_into_view_if_needed(timeout=2000)
+            btn.click(timeout=8000)
+            step["clicked"] = True
+            try:
+                # Đợi panel render xong: heading + content loaded (có "Sprint Releases (" text)
+                page.wait_for_function(
+                    """() => {
+                      const dialog = document.querySelector('.MuiDialog-root');
+                      if (!dialog) return false;
+                      const t = dialog.innerText || '';
+                      return t.includes('Sprint Release - ') && t.includes('Sprint Releases (');
+                    }""",
+                    timeout=8000,
+                )
+                step["panel_ready"] = True
+            except PWTimeout:
+                step["panel_ready"] = False
+            info = page.evaluate(_EXTRACT_ACTIVE_SPRINT_JS)
+            step["info"] = info
+            if info and isinstance(info, dict):
+                name = info.get("projectName")
+                sprint = info.get("activeSprint")
+                if name and sprint:
+                    mapping[name] = sprint
+            # Đóng dialog để click button tiếp theo
+            _close_mui_dialog(page)
+        except Exception as exc:
+            step["error"] = str(exc)
+            _close_mui_dialog(page)
+        iter_log.append(step)
+    _active_sprints_diag["iter_log"] = iter_log
+    return mapping
+
+
+def _select_sprint_by_name(page, sprint_name: str) -> str | None:
+    """Open sprint dropdown trong Project Overview, ensure CHỈ sprint khớp `sprint_name` được tick.
+
+    Match theo first-line (workload "\\n\\n42h/58h" sau text). Trả về sprint text đã chọn
+    hoặc None nếu không tìm thấy.
+    """
     try:
         _open_sprint_dropdown(page)
     except Exception:
         return None
     state = _read_dropdown_state(page)
-    real = [
+    real_idx: int | None = None
+    for i, s in enumerate(state):
+        first_line = s["text"].splitlines()[0].strip() if s["text"] else ""
+        if first_line == sprint_name:
+            real_idx = i
+            break
+    if real_idx is None:
+        page.keyboard.press("Escape")
+        _close_popover(page)
+        return None
+
+    items = page.locator(_ITEM_SELECTOR)
+    for i, s in enumerate(state):
+        want = (i == real_idx)
+        if s["checked"] != want:
+            items.nth(i).click()
+    page.keyboard.press("Escape")
+    _close_popover(page)
+    _wait_dialog_table_settle(page)
+    return state[real_idx]["text"].splitlines()[0].strip()
+
+
+def _select_first_sprint(page) -> str | None:
+    """Open sprint dropdown; chọn sprint "In Progress" nếu detect được trong item markup.
+    Fallback theo thứ tự ưu tiên: auto-ticked → first real.
+
+    Auto-tick của Review 360° KHÔNG đáng tin (đôi khi chọn sprint mới nhất/cũ nhất,
+    không phải active) → ưu tiên status badge trong item content.
+    """
+    try:
+        _open_sprint_dropdown(page)
+    except Exception:
+        return None
+    state = _read_dropdown_state(page)
+    real_pairs = [
         (i, s) for i, s in enumerate(state)
         if "không tìm thấy" not in s["text"].lower() and s["text"]
     ]
-    if not real:
+    if not real_pairs:
         page.keyboard.press("Escape")
         _close_popover(page)
         return None
 
     items = page.locator(_ITEM_SELECTOR)
 
-    # Deselect mọi sprint đang checked
-    for i, s in real:
-        if s["checked"]:
+    # Priority 1: workload heuristic (sprint có used < budget = đang chạy)
+    real_state = [s for _, s in real_pairs]
+    active_local = _detect_active_idx(real_state)
+    target_idx: int | None
+    target_state: dict | None
+    if active_local is not None:
+        target_idx, target_state = real_pairs[active_local]
+    else:
+        # Priority 2: auto-ticked (có thể nhiều) → keep first
+        checked = [(i, s) for i, s in real_pairs if s["checked"]]
+        if checked:
+            target_idx, target_state = checked[0]
+        else:
+            # Priority 3: first real
+            target_idx, target_state = real_pairs[0]
+
+    # Ensure target_idx is checked; deselect others.
+    for i, s in real_pairs:
+        want = (i == target_idx)
+        if s["checked"] != want:
             items.nth(i).click()
-
-    # Re-read state để chắc chắn (DOM có thể re-order/re-render)
-    state2 = _read_dropdown_state(page)
-    real2 = [
-        (i, s) for i, s in enumerate(state2)
-        if "không tìm thấy" not in s["text"].lower() and s["text"]
-    ]
-    if not real2:
-        page.keyboard.press("Escape")
-        _close_popover(page)
-        return None
-
-    idx, target_state = real2[0]
-    items.nth(idx).click()
     page.keyboard.press("Escape")
     _close_popover(page)
     _wait_dialog_table_settle(page)
@@ -497,14 +824,29 @@ def _scrape_dialog_table(page) -> list[dict]:
 
 
 def scrape_my_work(profile_dir: str) -> dict:
-    """Iterate Project Overview: với mỗi project chọn first sprint → scrape table.
-
-    Returns aggregated tasks across all projects.
+    """Scrape pipeline 2-phase:
+      Phase 1: /my-projects → mapping {project: active_sprint} (sprint có status "In Progress").
+      Phase 2: /my-work → Project Overview dialog → mỗi project select đúng sprint từ mapping.
+               Project không nằm trong mapping → fallback first-sprint.
     """
+    # Lazy import để tránh circular (cache → config → ...)
+    from .cache import load_active_sprints_cache, save_active_sprints_cache
+
     _ensure_profile(profile_dir)
     with sync_playwright() as p:
         with _persistent_context(p, profile_dir, headless=True) as ctx:
             page = ctx.new_page()
+
+            # Phase 1: thử load cache trước (TTL 24h). Cache hit → bỏ qua /my-projects navigation.
+            active_sprints = load_active_sprints_cache()
+            if active_sprints is None:
+                active_sprints = _collect_active_sprints(page)
+                save_active_sprints_cache(active_sprints)
+                logger.info("active sprints freshly collected: %s", active_sprints)
+            else:
+                logger.info("active sprints from cache: %s", active_sprints)
+
+            # Phase 2: scrape Project Overview
             diag = _goto_my_work(page)
             if "/my-work" not in page.url:
                 raise RuntimeError(
@@ -531,38 +873,146 @@ def scrape_my_work(profile_dir: str) -> dict:
             for proj in project_names:
                 try:
                     _select_only_project(page, proj)
-                    sprint_raw = _select_first_sprint(page)
+                    target_sprint = active_sprints.get(proj)
+                    sprint_raw: str | None
+                    if target_sprint:
+                        sprint_raw = _select_sprint_by_name(page, target_sprint)
+                        if not sprint_raw:
+                            # Mapping có nhưng dropdown không match (sprint name lệch) → fallback
+                            logger.warning("active sprint %r not in dropdown for %r, fallback first",
+                                           target_sprint, proj)
+                            sprint_raw = _select_first_sprint(page)
+                    else:
+                        # Project không có trong mapping (e.g. project ngoài /my-projects của user)
+                        sprint_raw = _select_first_sprint(page)
                     # Sprint button text có thể chứa workload "\n\n42h/58h" — lấy line đầu
-                    sprint = sprint_raw.splitlines()[0].strip() if sprint_raw else None
+                    sprint_name = sprint_raw.splitlines()[0].strip() if sprint_raw else None
+                    sprint_obj = (
+                        {"id": f"{_slug(proj)}__{_slug(sprint_name)}", "name": sprint_name, "project": proj}
+                        if sprint_name else None
+                    )
                     rows = _scrape_dialog_table(page)
                     for r in rows:
                         r["module"] = proj  # override với project name (chuẩn xác hơn)
-                        if sprint and not r.get("sprint"):
-                            r["sprint"] = sprint
+                        # Promote sprint string → structured dict với ID project-scoped.
+                        # Nếu row đã có sprint string từ scrape, vẫn override với sprint_obj
+                        # (sprint dropdown là source of truth cho project hiện tại).
+                        if sprint_obj:
+                            r["sprint"] = sprint_obj
                         r["_project"] = proj
                     all_tasks.extend(rows)
-                    per_project[proj] = {"sprint": sprint, "count": len(rows)}
-                    logger.info("scraped %d tasks for %r (sprint=%r)", len(rows), proj, sprint)
+                    per_project[proj] = {"sprint": sprint_name, "count": len(rows)}
+                    logger.info("scraped %d tasks for %r (sprint=%r)", len(rows), proj, sprint_name)
                 except Exception as exc:
                     msg = f"project {proj!r}: {exc}"
                     logger.warning(msg)
                     errors.append(msg)
 
-            return {
+            # Build per-project groups: project là cha, sprint/member nested vào.
+            # FE chỉ việc đọc projects[selected].sprints — không cần scope tại runtime.
+            projects_grouped: list[dict] = []
+            for proj in project_names:
+                proj_tasks = [t for t in all_tasks if t.get("_project") == proj]
+                sprint_by_id: dict[str, dict] = {}
+                member_by_name: dict[str, dict] = {}
+                for t in proj_tasks:
+                    sp = t.get("sprint")
+                    if isinstance(sp, dict) and sp.get("id"):
+                        sprint_by_id.setdefault(sp["id"], sp)
+                    an = t.get("assignee")
+                    if isinstance(an, str) and an and an != "-" and an not in member_by_name:
+                        member_by_name[an] = {"name": an, "role": ""}
+                projects_grouped.append({
+                    "name": proj,
+                    "sprints": list(sprint_by_id.values()),
+                    "members": list(member_by_name.values()),
+                    "taskCount": len(proj_tasks),
+                })
+
+            result = {
                 "url": page.url,
                 "title": page.title(),
                 "extractedAt": datetime.now(timezone.utc).isoformat(),
-                "projects": project_names,
+                "projectNames": project_names,
+                "projects": projects_grouped,
                 "perProject": per_project,
+                "activeSprintsMap": active_sprints,
                 "errors": errors,
                 "count": len(all_tasks),
                 "tasks": all_tasks,
-                "_diag": diag,
             }
+            if DEBUG:
+                result["activeSprintsDiag"] = _active_sprints_diag
+                result["_diag"] = diag
+            return result
 
 
-def dump_html(profile_dir: str, output_path: str) -> dict:
-    """Best-effort: lưu DOM /my-work, kèm diag."""
+def dump_sprint_dropdowns(profile_dir: str) -> dict:
+    """Debug: với mỗi project trong Project Overview, mở sprint dropdown và dump items.
+
+    Trả về {project_name: {items: [{text, checked, has_in_progress}], chosen: <idx>, reason: <str>}}.
+    Dùng để verify _detect_active_idx() có pick đúng sprint không.
+    """
+    _ensure_profile(profile_dir)
+    out: dict = {}
+    with sync_playwright() as p:
+        with _persistent_context(p, profile_dir, headless=True) as ctx:
+            page = ctx.new_page()
+            _goto_my_work(page)
+            if "/my-work" not in page.url:
+                return {"error": f"redirected to {page.url}"}
+            _open_overview_dialog(page)
+            project_items = _list_projects(page)
+            project_names = [p["text"] for p in project_items]
+            for proj in project_names:
+                try:
+                    _select_only_project(page, proj)
+                    _open_sprint_dropdown(page)
+                    state = _read_dropdown_state(page)
+                    real_pairs = [
+                        (i, s) for i, s in enumerate(state)
+                        if "không tìm thấy" not in s["text"].lower() and s["text"]
+                    ]
+                    real_state = [s for _, s in real_pairs]
+                    active_local = _detect_active_idx(real_state)
+                    if active_local is not None:
+                        chosen_idx, reason = real_pairs[active_local][0], "workload_active"
+                    else:
+                        checked = [(i, s) for i, s in real_pairs if s["checked"]]
+                        if checked:
+                            chosen_idx, reason = checked[0][0], "auto_ticked"
+                        elif real_pairs:
+                            chosen_idx, reason = real_pairs[0][0], "first_real"
+                        else:
+                            chosen_idx, reason = None, "no_real"
+                    out[proj] = {
+                        "items": [
+                            {
+                                "text": s["text"],
+                                "checked": s["checked"],
+                                "html_snippet": (s["html"][:300] if s.get("html") else ""),
+                                "workload": _parse_workload(s.get("text", "")),
+                                "sprint_num": _sprint_num(s.get("text", "")),
+                            }
+                            for s in state
+                        ],
+                        "chosen_idx": chosen_idx,
+                        "reason": reason,
+                    }
+                    page.keyboard.press("Escape")
+                    _close_popover(page)
+                except Exception as exc:
+                    out[proj] = {"error": str(exc)}
+    return out
+
+
+def dump_html(profile_dir: str, output_path: str, nav: list[str] | None = None) -> dict:
+    """Best-effort: lưu DOM, kèm diag.
+
+    Args:
+        nav: Optional list of text labels click sequentially sau khi vào /my-work.
+             Ví dụ ["Project", "Dự án của tôi", "Sprint Release"] → navigate menu.
+    """
     _ensure_profile(profile_dir)
     with sync_playwright() as p:
         with _persistent_context(p, profile_dir, headless=True) as ctx:
@@ -573,6 +1023,24 @@ def dump_html(profile_dir: str, output_path: str) -> dict:
             except Exception as exc:
                 logger.warning("goto failed: %s — dumping anyway", exc)
                 diag = {"goto_error": str(exc), "url": page.url}
+            if nav:
+                nav_log: list[dict] = []
+                for label in nav:
+                    step = {"label": label}
+                    try:
+                        page.get_by_text(label, exact=True).first.click(timeout=8000)
+                        try:
+                            page.wait_for_load_state("networkidle", timeout=5000)
+                        except PWTimeout:
+                            pass
+                        step["url_after"] = page.url
+                        step["ok"] = True
+                    except Exception as exc:
+                        step["ok"] = False
+                        step["error"] = str(exc)
+                        logger.warning("nav click %r failed: %s", label, exc)
+                    nav_log.append(step)
+                diag["nav"] = nav_log
             html = page.content()
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             Path(output_path).write_text(html, encoding="utf-8")

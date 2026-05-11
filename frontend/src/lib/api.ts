@@ -35,12 +35,23 @@ export type BridgeStatus =
   | { exists: false }
   | { exists: true; path?: string; cookies?: number; origins?: number; bytes?: number; error?: string }
 
+export type BridgeProjectGroup = {
+  name: string
+  sprints: { id: string; name: string; project: string }[]
+  members: { name: string; role?: string }[]
+  taskCount?: number
+}
+
 export type BridgeScrapeResult = {
   url: string
   title: string
   extractedAt: string
   count: number
   tasks: unknown[]
+  /** BE-organized: project là cha, sprints/members nested. */
+  projects?: BridgeProjectGroup[]
+  /** {project_name: active_sprint_name} từ /my-projects Sprint Release panel. */
+  activeSprintsMap?: Record<string, string>
   hash?: string
 }
 

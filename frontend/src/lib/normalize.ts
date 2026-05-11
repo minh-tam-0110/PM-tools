@@ -1,5 +1,5 @@
 /** Single source of truth: map raw data (Review 360° / manual JSON) → canonical. */
-import type { ImportPayload, Member, Priority, Sprint, SprintStatus, Status, Task } from './types'
+import type { ImportPayload, Member, Priority, ProjectGroup, Sprint, SprintStatus, Status, Task } from './types'
 import { fmtDate, hashS, initials } from './utils'
 
 function mapStatus(v: unknown): Status {
@@ -117,25 +117,75 @@ export type NormalizedImport = {
   tasks: Task[]
   team: Member[] | null
   sprints: Sprint[] | null
+  /** BE-organized: project name → its own sprints/members. Null nếu payload không có. */
+  projectMap: Record<string, ProjectGroup> | null
+}
+
+type RawProjectGroup = {
+  name: string
+  sprints?: Array<{ id?: string; name?: string; project?: string; status?: unknown }>
+  members?: Array<{ name?: string; role?: string }>
 }
 
 export function normalizeImported(raw: ImportPayload, today: Date = new Date()): NormalizedImport {
   const arr = Array.isArray(raw) ? raw : (raw?.tasks ?? [])
+  // Chấp nhận BE-organized format CHỈ khi projects là array of objects có `name`.
+  // Old cache có thể có `projects: ["ProjA", ...]` (list of strings) — bỏ qua dạng đó.
+  const projectsCandidate =
+    !Array.isArray(raw) && raw && typeof raw === 'object' && 'projects' in raw
+      ? (raw as { projects?: unknown }).projects
+      : undefined
+  const projectsRaw: RawProjectGroup[] | undefined =
+    Array.isArray(projectsCandidate) &&
+    projectsCandidate.length > 0 &&
+    projectsCandidate.every((p) => p && typeof p === 'object' && 'name' in (p as object))
+      ? (projectsCandidate as RawProjectGroup[])
+      : undefined
+
   const tasks = arr.map((t, i) => normTask(t, i, today))
 
-  // Derive team từ tasks: rebuild ID cho stable match với filter dropdown.
+  // Member dedup: global by name (Alice ở project A = Alice ở project B — cùng người).
   const teamMap = new Map<string, Member>()
   for (const t of tasks) {
     if (t.assignee?.name && !teamMap.has(t.assignee.name)) {
       teamMap.set(t.assignee.name, { ...t.assignee, id: teamMap.size + 1 })
     }
   }
-  // Re-tag mỗi task's assignee.id để match team list IDs (filter compatibility).
   for (const t of tasks) {
     const m = teamMap.get(t.assignee?.name)
     if (m) t.assignee = { ...t.assignee, id: m.id }
   }
 
+  // BE-organized path: dùng projects[] làm authoritative.
+  // Sprint IDs do BE assign (project-scoped) — không re-assign.
+  if (Array.isArray(projectsRaw) && projectsRaw.length > 0) {
+    const activeMap: Record<string, string> =
+      !Array.isArray(raw) && raw && typeof raw === 'object' && 'activeSprintsMap' in raw
+        ? ((raw as { activeSprintsMap?: Record<string, string> }).activeSprintsMap ?? {})
+        : {}
+    const projectMap: Record<string, ProjectGroup> = {}
+    const allSprints: Sprint[] = []
+    for (const pg of projectsRaw) {
+      const sprints: Sprint[] = (pg.sprints ?? [])
+        .filter((s) => s && s.id && s.name)
+        .map((s) => normSprint(s))
+      const memberNames = new Set((pg.members ?? []).map((m) => m.name).filter(Boolean) as string[])
+      const members: Member[] = Array.from(teamMap.values()).filter((m) => memberNames.has(m.name))
+      // Match active sprint name → sprint ID. Có thể không match nếu BE map dùng project ngoài Project Overview scope.
+      const activeName = activeMap[pg.name]
+      const activeSprintId = activeName ? sprints.find((s) => s.name === activeName)?.id : undefined
+      projectMap[pg.name] = { name: pg.name, sprints, members, activeSprintId }
+      allSprints.push(...sprints)
+    }
+    return {
+      tasks,
+      team: teamMap.size ? Array.from(teamMap.values()) : null,
+      sprints: allSprints.length ? allSprints : null,
+      projectMap,
+    }
+  }
+
+  // Fallback (manual JSON không có projects[]): dedup sprint globally (legacy behaviour).
   const sprintMap = new Map<string, Sprint>()
   for (const t of tasks) {
     if (t.sprint?.name && !sprintMap.has(t.sprint.name)) {
@@ -151,5 +201,6 @@ export function normalizeImported(raw: ImportPayload, today: Date = new Date()):
     tasks,
     team: teamMap.size ? Array.from(teamMap.values()) : null,
     sprints: sprintMap.size ? Array.from(sprintMap.values()) : null,
+    projectMap: null,
   }
 }

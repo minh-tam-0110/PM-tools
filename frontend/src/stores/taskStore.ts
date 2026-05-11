@@ -1,12 +1,19 @@
 import { create } from 'zustand'
-import type { CreateTaskInput, Member, Sprint, Task } from '@/lib/types'
+import type { CreateTaskInput, Member, ProjectGroup, Sprint, Task } from '@/lib/types'
 import { fmtDate } from '@/lib/utils'
 
 type State = {
   tasks: Task[]
   team: Member[]
   sprints: Sprint[]
-  setAll: (p: { tasks: Task[]; team?: Member[] | null; sprints?: Sprint[] | null }) => void
+  /** BE-organized: project name → {sprints, members}. Empty nếu data source là manual JSON cũ. */
+  projectMap: Record<string, ProjectGroup>
+  setAll: (p: {
+    tasks: Task[]
+    team?: Member[] | null
+    sprints?: Sprint[] | null
+    projectMap?: Record<string, ProjectGroup> | null
+  }) => void
   add: (input: CreateTaskInput) => Task
   update: (id: string, patch: Partial<Task>) => void
   remove: (id: string) => void
@@ -16,11 +23,13 @@ export const useTaskStore = create<State>((set, get) => ({
   tasks: [],
   team: [],
   sprints: [],
-  setAll: ({ tasks, team, sprints }) =>
+  projectMap: {},
+  setAll: ({ tasks, team, sprints, projectMap }) =>
     set((s) => ({
       tasks,
       team: team && team.length ? team : s.team,
       sprints: sprints && sprints.length ? sprints : s.sprints,
+      projectMap: projectMap && Object.keys(projectMap).length ? projectMap : s.projectMap,
     })),
   add: (input) => {
     const today = new Date()

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { bridgeApi, type BgWorkerStatus } from '@/lib/api'
 import { useConnStore, useFilterStore } from '@/stores'
 import { TabBar, type TabId } from '@/components/layout/TabBar'
 
@@ -15,22 +14,14 @@ export function Header({ view, onView, onRefresh, onConnect, onCreate }: Props) 
   const src = useConnStore((s) => s.src)
   const iframeSt = useConnStore((s) => s.iframeSt)
   const lastSync = useConnStore((s) => s.lastSync)
+  const bgSt = useConnStore((s) => s.bgSt)
   const search = useFilterStore((s) => s.search)
   const setSearch = useFilterStore((s) => s.setSearch)
   const busy = iframeSt === 'loading'
 
-  const [bgSt, setBgSt] = useState<BgWorkerStatus | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
 
-  // Poll bg-worker status every 10s
-  useEffect(() => {
-    const poll = () => bridgeApi.bgStatus().then(setBgSt).catch(() => {})
-    poll()
-    const id = setInterval(poll, 10_000)
-    return () => clearInterval(id)
-  }, [])
-
-  // Tick countdown every 1s from last_run + interval
+  // Tick countdown every 1s from last_run + interval (bgSt được poll bởi useDataBridge)
   useEffect(() => {
     if (!bgSt?.last_run || !bgSt.interval) { setCountdown(null); return }
     const tick = () => {

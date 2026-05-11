@@ -8,9 +8,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import time
 from pathlib import Path
 
-from ..bridge_config import LAST_SCRAPE_PATH
+from ..bridge_config import ACTIVE_SPRINTS_CACHE_PATH, ACTIVE_SPRINTS_TTL_SEC, LAST_SCRAPE_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -57,3 +58,35 @@ def load_last_scrape() -> dict | None:
     except (OSError, json.JSONDecodeError):
         logger.warning("failed to load last scrape", exc_info=True)
         return None
+
+
+def load_active_sprints_cache() -> dict[str, str] | None:
+    """Load cached active sprints mapping. Returns None if missing/corrupt/expired."""
+    path = Path(ACTIVE_SPRINTS_CACHE_PATH)
+    if not path.exists():
+        return None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.warning("failed to load active sprints cache", exc_info=True)
+        return None
+    ts = raw.get("savedAt", 0)
+    age = time.time() - ts
+    if age > ACTIVE_SPRINTS_TTL_SEC:
+        logger.info("active sprints cache stale (age %.0fs > %ds)", age, ACTIVE_SPRINTS_TTL_SEC)
+        return None
+    mapping = raw.get("mapping")
+    return mapping if isinstance(mapping, dict) else None
+
+
+def save_active_sprints_cache(mapping: dict[str, str]) -> None:
+    """Persist active sprints mapping with timestamp. Best-effort."""
+    if not mapping:
+        return  # don't cache empty (often means collection failed)
+    try:
+        path = Path(ACTIVE_SPRINTS_CACHE_PATH)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"savedAt": time.time(), "mapping": mapping}
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        logger.warning("failed to persist active sprints cache", exc_info=True)

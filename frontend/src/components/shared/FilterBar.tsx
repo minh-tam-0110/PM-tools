@@ -133,27 +133,39 @@ export function FilterBar() {
   const tasks = useTaskStore((s) => s.tasks)
   const team = useTaskStore((s) => s.team)
   const sprints = useTaskStore((s) => s.sprints)
+  const projectMap = useTaskStore((s) => s.projectMap)
   const filters = useFilterStore((s) => s.filters)
   const search = useFilterStore((s) => s.search)
   const set = useFilterStore((s) => s.set)
   const clear = useFilterStore((s) => s.clear)
 
-  const modules = useMemo(() => [...new Set(tasks.map((t) => t.module))], [tasks])
+  const hasProjectMap = Object.keys(projectMap).length > 0
 
-  // Scope sprints + members theo module đang chọn — task nào thuộc module thì sprint/member của nó
-  // mới xuất hiện trong dropdown. Tránh chọn người/sprint không hề có task trong project.
-  const scopedTasks = useMemo(
-    () => (filters.module === 'all' ? tasks : tasks.filter((t) => t.module === filters.module)),
-    [tasks, filters.module],
+  // Project list: ưu tiên đọc từ projectMap (BE đã sắp xếp); fallback derive từ tasks.module.
+  const modules = useMemo(
+    () => (hasProjectMap ? Object.keys(projectMap) : [...new Set(tasks.map((t) => t.module))]),
+    [hasProjectMap, projectMap, tasks],
   )
-  const scopedSprints = useMemo(() => {
-    const ids = new Set(scopedTasks.map((t) => t.sprint?.id).filter(Boolean) as string[])
-    return sprints.filter((s) => ids.has(s.id))
-  }, [scopedTasks, sprints])
-  const scopedMembers = useMemo(() => {
-    const ids = new Set(scopedTasks.map((t) => t.assignee?.id).filter((v) => v !== undefined))
-    return team.filter((m) => ids.has(m.id))
-  }, [scopedTasks, team])
+
+  // Sprints/members hiển thị: nếu chưa chọn project ("all") → all; ngược lại đọc trực tiếp
+  // projectMap[selected]. Không còn useMemo scoping logic ở FE.
+  const scopedSprints =
+    filters.module === 'all'
+      ? sprints
+      : hasProjectMap
+        ? (projectMap[filters.module]?.sprints ?? [])
+        : sprints.filter((s) => tasks.some((t) => t.module === filters.module && t.sprint?.id === s.id))
+
+  const scopedMembers =
+    filters.module === 'all'
+      ? team
+      : hasProjectMap
+        ? (projectMap[filters.module]?.members ?? [])
+        : team.filter((m) => tasks.some((t) => t.module === filters.module && t.assignee?.id === m.id))
+
+  // Active sprint ID cho project hiện tại — dùng để mark "🎯 Active" trong dropdown.
+  const activeSprintId =
+    filters.module !== 'all' && hasProjectMap ? projectMap[filters.module]?.activeSprintId : undefined
 
   const filteredCount = useMemo(() => applyFilters(tasks, filters, search).length, [tasks, filters, search])
   const active = hasActiveFilter(filters)
@@ -241,12 +253,15 @@ export function FilterBar() {
         disabled={scopedSprints.length === 0}
       >
         <option value="all">Tất cả Sprint</option>
-        {scopedSprints.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.name}
-            {s.status === 'active' ? ' ●' : ''}
-          </option>
-        ))}
+        {scopedSprints.map((s) => {
+          const isActive = s.id === activeSprintId
+          return (
+            <option key={s.id} value={s.id}>
+              {s.name}
+              {isActive ? '  🎯 Active' : s.status === 'active' ? ' ●' : ''}
+            </option>
+          )
+        })}
       </select>
 
       <MultiSelect

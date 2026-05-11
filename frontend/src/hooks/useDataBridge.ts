@@ -48,17 +48,56 @@ export function useDataBridge() {
         if (cancelled || !r) return
         // Chỉ load nếu store rỗng — tránh ghi đè data người dùng vừa import/scrape
         if (useTaskStore.getState().tasks.length > 0) return
-        const norm = normalizeImported({ tasks: r.tasks })
+        const norm = normalizeImported({ tasks: r.tasks, projects: r.projects, activeSprintsMap: r.activeSprintsMap })
         useTaskStore.getState().setAll(norm)
         useConnStore.getState().setSrc('be')
         if (r.hash) useConnStore.getState().setHash(r.hash)
-        if (r.extractedAt) useConnStore.getState().touchSync()
+        if (r.extractedAt) useConnStore.getState().touchSync(new Date(r.extractedAt))
       })
       .catch(() => {
         /* BE không chạy / chưa có cache → ignore */
       })
     return () => {
       cancelled = true
+    }
+  }, [])
+
+  // Poll bg-worker status: realtime sync khi background scrape xong.
+  // Khi `last_run` advance → update lastSync + pull cached scrape mới (skip nếu hash unchanged).
+  useEffect(() => {
+    let cancelled = false
+    let prevLastRun: string | null = null
+
+    const poll = async () => {
+      try {
+        const st = await bridgeApi.bgStatus()
+        if (cancelled) return
+        useConnStore.getState().setBgSt(st)
+        if (!st.last_run || st.last_run === prevLastRun) return
+        prevLastRun = st.last_run
+        // Bg-worker chỉ quản BE source. Nếu user đang dùng iframe/manual → không override.
+        const currentSrc = useConnStore.getState().src
+        if (currentSrc === 'iframe' || currentSrc === 'manual') return
+        // last_run advanced → sync timestamp + fetch new cache
+        useConnStore.getState().touchSync(new Date(st.last_run))
+        const r = await bridgeApi.last()
+        if (cancelled || !r) return
+        const prevHash = useConnStore.getState().lastHash
+        if (r.hash && prevHash === r.hash) return // data không đổi — skip re-render
+        const norm = normalizeImported({ tasks: r.tasks, projects: r.projects, activeSprintsMap: r.activeSprintsMap })
+        useTaskStore.getState().setAll(norm)
+        if (currentSrc === 'none') useConnStore.getState().setSrc('be')
+        if (r.hash) useConnStore.getState().setHash(r.hash)
+      } catch {
+        /* BE down / endpoint missing → ignore */
+      }
+    }
+
+    poll()
+    const id = window.setInterval(poll, 10_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
     }
   }, [])
 
@@ -91,13 +130,13 @@ export function useDataBridge() {
       const r = await bridgeApi.scrape()
       useConnStore.getState().setSrc('be')
       useConnStore.getState().setIframeSt('connected')
-      useConnStore.getState().touchSync()
+      useConnStore.getState().touchSync(r.extractedAt ? new Date(r.extractedAt) : undefined)
       // Skip re-normalize + re-render nếu hash không đổi
       const prevHash = useConnStore.getState().lastHash
       if (r.hash && prevHash === r.hash) {
         return { ok: true, count: useTaskStore.getState().tasks.length }
       }
-      const norm = normalizeImported({ tasks: r.tasks })
+      const norm = normalizeImported({ tasks: r.tasks, projects: r.projects, activeSprintsMap: r.activeSprintsMap })
       useTaskStore.getState().setAll(norm)
       if (r.hash) useConnStore.getState().setHash(r.hash)
       return { ok: true, count: norm.tasks.length }

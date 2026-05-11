@@ -7,6 +7,7 @@ from pathlib import Path
 
 REVIEW_360_URL = os.environ["REVIEW_360_URL"]
 MY_WORK_URL = f"{REVIEW_360_URL}/my-work"
+MY_PROJECTS_URL = f"{REVIEW_360_URL}/my-projects"
 
 ALLOWED_ORIGINS = [
     o.strip() for o in os.environ["BRIDGE_ALLOWED_ORIGINS"].split(",") if o.strip()
@@ -18,6 +19,7 @@ DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 PROFILE_DIR = str(DATA_DIR / "review360_profile")
 LAST_DOM_DUMP_PATH = str(DATA_DIR / "review360_last_dom.html")
 LAST_SCRAPE_PATH = str(DATA_DIR / "last_scrape.json")
+ACTIVE_SPRINTS_CACHE_PATH = str(DATA_DIR / "active_sprints.json")
 
 LOGIN_TIMEOUT_MS = 5 * 60 * 1000      # 5 phút cho user nhập credential
 SCRAPE_TIMEOUT_MS = 45 * 1000
@@ -26,6 +28,12 @@ SCRAPE_TIMEOUT_MS = 45 * 1000
 BG_SCRAPE_INTERVAL_SEC = int(os.environ.get("BRIDGE_BG_SCRAPE_INTERVAL_SEC", "300"))
 # Manual /scrape returns cached result if cache is newer than this many seconds
 CACHE_MAX_AGE_SEC = int(os.environ.get("BRIDGE_CACHE_MAX_AGE_SEC", "60"))
+# Active sprints (phase 1 mapping) ít đổi (vài ngày/sprint) → cache lâu, tránh chạy mỗi scrape.
+# Default 24h.
+ACTIVE_SPRINTS_TTL_SEC = int(os.environ.get("BRIDGE_ACTIVE_SPRINTS_TTL_SEC", "86400"))
+# Verbose diagnostics (activeSprintsDiag, iter_log, ...) trong scrape response.
+# Tắt mặc định — bật khi debug bằng BRIDGE_DEBUG=1.
+DEBUG = os.environ.get("BRIDGE_DEBUG", "").lower() in ("1", "true", "yes")
 
 # Heuristic login-done: URL chứa fragment này nghĩa là đã đăng nhập.
 LOGIN_DONE_URL_FRAGMENT = "/my-work"
