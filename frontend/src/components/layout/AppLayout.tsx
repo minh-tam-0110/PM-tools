@@ -1,26 +1,29 @@
 import type { ReactNode } from 'react'
-import { T } from '@/lib/constants'
 
 export function AppLayout({ header, children }: { header: ReactNode; children: ReactNode }) {
   return (
     <div
       style={{
-        fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif",
-        background: T.bg,
-        color: T.text,
+        fontFamily: "var(--font-sans)",
         minHeight: '100vh',
         paddingBottom: 40,
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       {header}
-      <div
+      <main
+        className="animate-fade-in"
         style={{
+          flex: 1,
           width: '100%',
-          padding: '0 clamp(16px, 2vw, 40px)',
+          maxWidth: 1600,
+          margin: '0 auto',
+          padding: '0 clamp(16px, 3vw, 40px)',
         }}
       >
         {children}
-      </div>
+      </main>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 /** Create Task modal. */
 import { useMemo, useState } from 'react'
-import { PRIORITIES, STATUSES, T } from '@/lib/constants'
+import { PRIORITIES, STATUSES } from '@/lib/constants'
 import { fmtDate } from '@/lib/utils'
 import { useConnStore, useTaskStore } from '@/stores'
 import type { Priority, Status, Task } from '@/lib/types'
@@ -38,14 +38,15 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
 
   const inp = {
     width: '100%',
-    padding: '8px 12px',
+    padding: '10px 14px',
     borderRadius: 8,
-    border: `1px solid ${T.border}`,
-    background: T.bg,
-    color: T.text,
-    fontSize: 13,
+    border: `1px solid var(--app-border)`,
+    background: 'var(--app-bg)',
+    color: 'var(--app-text)',
+    fontSize: 14,
     outline: 'none',
     boxSizing: 'border-box' as const,
+    transition: 'border-color 0.2s',
   }
 
   const submit = () => {
@@ -84,34 +85,42 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 100,
-        backdropFilter: 'blur(4px)',
+        backdropFilter: 'blur(8px)',
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="glass-panel animate-scale-in"
         style={{
-          background: T.card,
-          border: `1px solid ${T.border}`,
-          borderRadius: 16,
+          background: 'var(--app-card)',
+          border: `1px solid var(--app-border)`,
+          borderRadius: 20,
           width: 520,
           maxHeight: '85vh',
           overflow: 'auto',
-          padding: 28,
+          padding: 32,
+          boxShadow: '0 24px 48px rgba(0,0,0,0.2)'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: T.text }}>✚ Tạo Task mới</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--app-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{color: 'var(--app-accent)'}}>✚</span> Tạo Task mới
+          </div>
           <button
+            className="btn-outline"
             onClick={onClose}
             style={{
               width: 32,
               height: 32,
               borderRadius: 8,
-              border: `1px solid ${T.border}`,
-              background: T.surface,
-              color: T.text,
+              border: `1px solid var(--app-border)`,
+              background: 'var(--app-surface)',
+              color: 'var(--app-text)',
               cursor: 'pointer',
               fontSize: 16,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             ✕
@@ -119,34 +128,35 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
         </div>
 
         {done ? (
-          <div style={{ textAlign: 'center', padding: '30px 0' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: T.ok }}>Tạo thành công!</div>
-            <div style={{ fontSize: 13, color: T.textSec, marginTop: 4 }}>
-              {done.id} — {done.title}
+          <div className="animate-scale-in" style={{ textAlign: 'center', padding: '40px 0' }}>
+            <div style={{ fontSize: 60, marginBottom: 16, color: 'var(--app-ok, #34D399)', textShadow: '0 0 20px rgba(52,211,153,0.4)' }}>✓</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--app-text)' }}>Tạo thành công!</div>
+            <div style={{ fontSize: 14, color: 'var(--app-text-sec)', marginTop: 8, background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
+              <span style={{color: 'var(--app-text-muted)', fontWeight: 600}}>{done.id}</span> — {done.title}
             </div>
           </div>
         ) : team.length === 0 || sprints.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>📭</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 6 }}>
+          <div style={{ textAlign: 'center', padding: '30px 0' }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--app-text)', marginBottom: 8 }}>
               Chưa có data
             </div>
-            <div style={{ fontSize: 13, color: T.textSec, lineHeight: 1.6, marginBottom: 16 }}>
+            <div style={{ fontSize: 14, color: 'var(--app-text-sec)', lineHeight: 1.6, marginBottom: 24 }}>
               Cần scrape Review 360° trước để có team và sprint.
               <br />
               Mở <b>🔗 Kết nối → BE Bridge</b> để login và scrape.
             </div>
             <button
+              className="btn-outline"
               onClick={onClose}
               style={{
-                padding: '8px 20px',
+                padding: '10px 24px',
                 borderRadius: 8,
-                border: `1px solid ${T.border}`,
-                background: T.surface,
-                color: T.text,
-                fontSize: 13,
-                fontWeight: 600,
+                border: `1px solid var(--app-border)`,
+                background: 'var(--app-surface)',
+                color: 'var(--app-text)',
+                fontSize: 14,
+                fontWeight: 700,
                 cursor: 'pointer',
               }}
             >
@@ -154,9 +164,10 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Field label="Tên task *">
               <input
+                className="input-premium"
                 value={f.title}
                 onChange={(e) => sF((p) => ({ ...p, title: e.target.value }))}
                 placeholder="VD: Fix login timeout bug"
@@ -164,9 +175,9 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
                 autoFocus
               />
             </Field>
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 16 }}>
               <Field label="Assignee" flex>
-                <select value={f.assigneeId} onChange={(e) => sF((p) => ({ ...p, assigneeId: Number(e.target.value) }))} style={inp}>
+                <select className="input-premium" value={f.assigneeId} onChange={(e) => sF((p) => ({ ...p, assigneeId: Number(e.target.value) }))} style={inp}>
                   {team.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name}
@@ -175,7 +186,7 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
                 </select>
               </Field>
               <Field label="Sprint" flex>
-                <select value={f.sprintId} onChange={(e) => sF((p) => ({ ...p, sprintId: e.target.value }))} style={inp}>
+                <select className="input-premium" value={f.sprintId} onChange={(e) => sF((p) => ({ ...p, sprintId: e.target.value }))} style={inp}>
                   {sprints.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
@@ -185,25 +196,26 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
                 </select>
               </Field>
             </div>
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 16 }}>
               <Field label="Status" flex>
-                <select value={f.status} onChange={(e) => sF((p) => ({ ...p, status: e.target.value as Status }))} style={inp}>
+                <select className="input-premium" value={f.status} onChange={(e) => sF((p) => ({ ...p, status: e.target.value as Status }))} style={inp}>
                   {STATUSES.map((s) => (
                     <option key={s}>{s}</option>
                   ))}
                 </select>
               </Field>
               <Field label="Priority" flex>
-                <select value={f.priority} onChange={(e) => sF((p) => ({ ...p, priority: e.target.value as Priority }))} style={inp}>
+                <select className="input-premium" value={f.priority} onChange={(e) => sF((p) => ({ ...p, priority: e.target.value as Priority }))} style={inp}>
                   {PRIORITIES.map((p) => (
                     <option key={p}>{p}</option>
                   ))}
                 </select>
               </Field>
             </div>
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 16 }}>
               <Field label="Project" flex>
                 <input
+                  className="input-premium"
                   value={f.module}
                   onChange={(e) => sF((p) => ({ ...p, module: e.target.value }))}
                   list="module-options"
@@ -217,7 +229,7 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
                 </datalist>
               </Field>
               <Field label="Story Points" flex>
-                <select value={f.sp} onChange={(e) => sF((p) => ({ ...p, sp: Number(e.target.value) }))} style={inp}>
+                <select className="input-premium" value={f.sp} onChange={(e) => sF((p) => ({ ...p, sp: Number(e.target.value) }))} style={inp}>
                   {[1, 2, 3, 5, 8, 13].map((v) => (
                     <option key={v} value={v}>
                       {v} SP
@@ -227,30 +239,34 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
               </Field>
             </div>
             <Field label="Deadline">
-              <input type="date" value={f.deadline} onChange={(e) => sF((p) => ({ ...p, deadline: e.target.value }))} style={inp} />
+              <input className="input-premium" type="date" value={f.deadline} onChange={(e) => sF((p) => ({ ...p, deadline: e.target.value }))} style={inp} />
             </Field>
             <Field label="Mô tả">
               <textarea
+                className="input-premium"
                 value={f.desc}
                 onChange={(e) => sF((p) => ({ ...p, desc: e.target.value }))}
-                rows={2}
+                rows={3}
                 placeholder="Chi tiết..."
                 style={{ ...inp, resize: 'vertical' }}
               />
             </Field>
             <button
+              className={f.title.trim() ? "btn-primary" : ""}
               onClick={submit}
               disabled={!f.title.trim()}
               style={{
                 padding: '12px 24px',
                 borderRadius: 10,
                 border: 'none',
-                background: f.title.trim() ? T.accent : T.borderLight,
-                color: '#fff',
-                fontSize: 14,
+                background: f.title.trim() ? 'var(--app-gradient-primary)' : 'var(--app-surface)',
+                color: f.title.trim() ? '#fff' : 'var(--app-text-muted)',
+                fontSize: 15,
                 fontWeight: 700,
                 cursor: f.title.trim() ? 'pointer' : 'not-allowed',
-                marginTop: 4,
+                marginTop: 8,
+                boxShadow: f.title.trim() ? '0 4px 16px rgba(124, 106, 239, 0.4)' : 'none',
+                transition: 'all 0.3s'
               }}
             >
               Tạo Task
@@ -265,7 +281,7 @@ export function CreateTaskModal({ iframeRef, onClose }: Props) {
 function Field({ label, children, flex }: { label: string; children: React.ReactNode; flex?: boolean }) {
   return (
     <div style={{ flex: flex ? 1 : undefined }}>
-      <label style={{ fontSize: 12, color: T.textSec, fontWeight: 600, display: 'block', marginBottom: 4 }}>{label}</label>
+      <label style={{ fontSize: 13, color: 'var(--app-text-sec)', fontWeight: 700, display: 'block', marginBottom: 6 }}>{label}</label>
       {children}
     </div>
   )

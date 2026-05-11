@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import _ from 'lodash'
 import { useFilterStore, useTaskStore } from '@/stores'
 import { applyFilters } from '@/lib/filter'
-import { prioC, PRIORITIES, stOf, T } from '@/lib/constants'
+import { prioC, PRIORITIES, stOf } from '@/lib/constants'
 import { Avatar } from '@/components/shared/Avatar'
 import { Badge } from '@/components/shared/Badge'
 import { Card } from '@/components/shared/Card'
@@ -24,7 +24,7 @@ export function ProjectsView() {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {projects.map((proj) => {
         const list = byProject[proj]
         const done = list.filter((t) => t.status === 'Done').length
@@ -32,108 +32,133 @@ export function ProjectsView() {
         const pct = list.length ? Math.round((done / list.length) * 100) : 0
         const sprintNames = [...new Set(list.map((t) => t.sprint?.name).filter(Boolean))]
         return (
-          <Card key={proj}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <Card key={proj} hoverable={false}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
               <div
                 style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 8,
-                  background: T.accentSoft,
-                  color: T.accent,
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  background: 'var(--app-accent-glow)',
+                  color: 'var(--app-accent)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 18,
+                  fontSize: 22,
                   fontWeight: 800,
                   flexShrink: 0,
+                  boxShadow: '0 0 16px var(--app-accent-glow)'
                 }}
               >
                 ⌘
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{proj}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--app-text)' }}>{proj}</span>
                   {sprintNames.map((s) => (
                     <span
                       key={s}
                       style={{
-                        fontSize: 11,
-                        color: T.textMuted,
-                        background: 'rgba(255,255,255,.04)',
-                        padding: '1px 6px',
-                        borderRadius: 4,
+                        fontSize: 12,
+                        color: 'var(--app-text-muted)',
+                        background: 'rgba(255,255,255,.06)',
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        fontWeight: 600,
                       }}
                     >
                       {s}
                     </span>
                   ))}
                 </div>
-                <div style={{ display: 'flex', gap: 10, marginTop: 3, fontSize: 12, color: T.textSec }}>
-                  <span>{list.length} tasks</span>
-                  <span>· {done} done</span>
+                <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 13, color: 'var(--app-text-sec)', fontWeight: 600 }}>
+                  <span style={{background: 'rgba(255,255,255,0.03)', padding: '2px 8px', borderRadius: 4}}>{list.length} tasks</span>
+                  <span style={{background: 'rgba(52,211,153,0.1)', color: 'var(--app-ok)', padding: '2px 8px', borderRadius: 4}}>{done} done</span>
                   {ov > 0 && (
-                    <Badge color={T.danger} bg={T.dangerSoft} small>
-                      ⚠{ov} overdue
+                    <Badge color="var(--app-danger, #F87171)" bg="rgba(248,113,113,0.1)" small>
+                      ⚠ {ov} overdue
                     </Badge>
                   )}
                 </div>
               </div>
-              <div
-                style={{
-                  fontSize: 24,
-                  fontWeight: 800,
-                  color: pct === 100 ? T.ok : pct > 60 ? T.info : pct > 30 ? T.warn : T.danger,
-                }}
-              >
-                {pct}%
+              <div style={{ textAlign: 'right' }}>
+                <div
+                  style={{
+                    fontSize: 32,
+                    fontWeight: 800,
+                    color: pct === 100 ? 'var(--app-ok, #34D399)' : pct > 60 ? 'var(--app-info, #60A5FA)' : pct > 30 ? 'var(--app-warn, #FBBF24)' : 'var(--app-text)',
+                    letterSpacing: '-1px'
+                  }}
+                >
+                  {pct}%
+                </div>
               </div>
             </div>
 
-            <ProgressBar value={pct} color={pct === 100 ? T.ok : pct > 60 ? T.info : T.warn} h={4} />
+            <ProgressBar value={pct} color={pct === 100 ? 'var(--app-ok, #34D399)' : pct > 60 ? 'var(--app-info, #60A5FA)' : pct > 30 ? 'var(--app-warn, #FBBF24)' : 'var(--app-text-muted)'} h={6} />
 
-            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {list
                 .slice()
-                .sort((a, b) => PRIORITIES.indexOf(a.priority) - PRIORITIES.indexOf(b.priority))
+                .sort((a, b) => PRIORITIES.indexOf(a.priority as any) - PRIORITIES.indexOf(b.priority as any))
                 .map((t) => (
                   <div
                     key={t.id}
+                    className="card-hover"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 7,
-                      padding: '6px 8px',
-                      borderRadius: 6,
-                      background: t.isOverdue ? 'rgba(248,113,113,.05)' : 'rgba(255,255,255,.02)',
-                      border: t.isOverdue ? '1px solid rgba(248,113,113,.1)' : '1px solid transparent',
-                      fontSize: 12,
+                      gap: 16,
+                      padding: '12px 16px',
+                      borderRadius: 12,
+                      background: t.isOverdue ? 'rgba(248,113,113,.04)' : 'var(--app-surface)',
+                      border: t.isOverdue ? '1px solid rgba(248,113,113,.2)' : '1px solid var(--app-border)',
+                      fontSize: 13,
                     }}
                   >
-                    <span style={{ color: stOf(t.status).c, fontSize: 12 }}>{stOf(t.status).i}</span>
-                    <span style={{ color: T.textMuted, fontWeight: 600, minWidth: 56 }}>{t.id}</span>
-                    <span style={{ flex: 1, color: T.text, fontWeight: 500 }}>{t.title}</span>
-                    <Avatar name={t.assignee?.name ?? '?'} initials={t.assignee?.av ?? '?'} size={18} />
-                    <span style={{ fontSize: 11, color: T.textSec, minWidth: 90 }}>
-                      {t.assignee?.name?.split(' ').slice(-2).join(' ') ?? ''}
-                    </span>
-                    <Badge color={prioC[t.priority]?.c ?? T.textMuted} bg={prioC[t.priority]?.bg ?? T.surface} small>
-                      {t.priority}
-                    </Badge>
-                    <span
-                      style={{
-                        color: t.isOverdue ? T.danger : T.textMuted,
-                        fontSize: 11,
-                        minWidth: 75,
-                        textAlign: 'right',
-                        fontWeight: t.isOverdue ? 600 : 400,
-                      }}
-                    >
-                      {t.isOverdue ? '⚠ ' : ''}
-                      {t.deadline || '—'}
-                    </span>
-                    <div style={{ width: 40 }}>
-                      <ProgressBar value={t.progress} color={t.isOverdue ? T.danger : stOf(t.status).c} h={3} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 100, flexShrink: 0 }}>
+                      <span style={{ color: stOf(t.status).c, fontSize: 16, filter: `drop-shadow(0 0 6px ${stOf(t.status).c})` }}>{stOf(t.status).i}</span>
+                      <span style={{ color: 'var(--app-text-muted)', fontWeight: 700, fontSize: 12 }}>{t.id}</span>
+                    </div>
+                    
+                    <div style={{ flex: 1, color: 'var(--app-text)', fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {t.title}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+                      <div style={{ width: 80 }}>
+                        <Badge color={prioC[t.priority]?.c ?? 'var(--app-text-muted)'} bg={prioC[t.priority]?.bg ?? 'rgba(255,255,255,0.05)'} small>
+                          {t.priority}
+                        </Badge>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 140 }}>
+                        <Avatar name={t.assignee?.name ?? '?'} initials={t.assignee?.av ?? '?'} size={24} />
+                        <span style={{ fontSize: 13, color: 'var(--app-text-sec)', fontWeight: 600 }}>
+                          {t.assignee?.name?.split(' ').pop() ?? ''}
+                        </span>
+                      </div>
+
+                      <div style={{ width: 100 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-muted)', marginBottom: 4, textAlign: 'right' }}>{t.progress}%</div>
+                        <ProgressBar value={t.progress} color={t.isOverdue ? 'var(--app-danger, #F87171)' : stOf(t.status).c} h={4} />
+                      </div>
+
+                      <div
+                        style={{
+                          width: 100,
+                          textAlign: 'right',
+                          color: t.isOverdue ? 'var(--app-danger, #F87171)' : 'var(--app-text-muted)',
+                          fontSize: 12,
+                          fontWeight: t.isOverdue ? 700 : 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'flex-end',
+                          gap: 4
+                        }}
+                      >
+                        {t.isOverdue ? '⚠' : '🗓'} {t.deadline || '—'}
+                      </div>
                     </div>
                   </div>
                 ))}

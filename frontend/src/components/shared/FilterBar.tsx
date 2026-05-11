@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { PRIORITIES, STATUSES, stOf, T } from '@/lib/constants'
+import { PRIORITIES, STATUSES, stOf } from '@/lib/constants'
 import { applyFilters, hasActiveFilter } from '@/lib/filter'
 import { useFilterStore, useTaskStore } from '@/stores'
 
 const sel = {
-  padding: '5px 9px',
-  borderRadius: 7,
-  border: `1px solid ${T.border}`,
-  background: T.surface,
-  color: T.text,
-  fontSize: 12,
+  padding: '6px 12px',
+  borderRadius: 8,
+  border: `1px solid var(--app-border)`,
+  background: 'var(--app-surface)',
+  color: 'var(--app-text)',
+  fontSize: 13,
+  fontWeight: 600,
   outline: 'none' as const,
   cursor: 'pointer' as const,
+  transition: 'all 0.2s ease',
 }
 
 type MSOption = { value: string; row: ReactNode; accent?: string }
@@ -22,7 +24,7 @@ function MultiSelect({
   onChange,
   placeholder,
   selectedLabel,
-  minWidth = 160,
+  minWidth = 180,
 }: {
   options: MSOption[]
   value: string[]
@@ -58,32 +60,34 @@ function MultiSelect({
         onClick={() => setOpen((o) => !o)}
         style={{
           ...sel,
-          background: active ? 'rgba(124,106,239,0.12)' : T.surface,
-          borderColor: active ? T.accent : T.border,
-          color: active ? T.accent : T.text,
+          background: active ? 'rgba(124, 106, 239, 0.1)' : 'var(--app-surface)',
+          borderColor: active ? 'var(--app-accent)' : 'var(--app-border)',
+          color: active ? 'var(--app-accent)' : 'var(--app-text)',
+          boxShadow: active ? '0 0 0 1px var(--app-accent)' : 'none',
         }}
       >
-        {label} ▾
+        {label} <span style={{ fontSize: 10, marginLeft: 4, opacity: 0.7 }}>▼</span>
       </button>
       {open && (
         <div
+          className="animate-fade-in"
           style={{
             position: 'absolute',
-            top: 'calc(100% + 4px)',
+            top: 'calc(100% + 8px)',
             left: 0,
             zIndex: 100,
-            background: T.surface,
-            border: `1px solid ${T.border}`,
-            borderRadius: 8,
-            padding: '4px 0',
+            background: 'var(--app-card)',
+            border: `1px solid var(--app-border)`,
+            borderRadius: 12,
+            padding: '6px 0',
             minWidth,
             maxHeight: 320,
             overflowY: 'auto',
-            boxShadow: T.shadowLg,
+            boxShadow: '0 12px 24px rgba(0,0,0,0.2)',
           }}
         >
           {options.length === 0 && (
-            <div style={{ padding: '8px 12px', fontSize: 11, color: T.textMuted }}>Không có lựa chọn</div>
+            <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--app-text-muted)' }}>Không có lựa chọn</div>
           )}
           {options.map((opt) => {
             const checked = value.includes(opt.value)
@@ -93,19 +97,27 @@ function MultiSelect({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 7,
-                  padding: '7px 12px',
+                  gap: 10,
+                  padding: '8px 16px',
                   cursor: 'pointer',
                   background: checked ? 'rgba(255,255,255,.04)' : 'transparent',
-                  fontSize: 12,
-                  color: T.text,
+                  fontSize: 13,
+                  color: checked ? 'var(--app-text)' : 'var(--app-text-sec)',
+                  fontWeight: checked ? 600 : 500,
+                  transition: 'background 0.2s',
+                }}
+                onMouseOver={(e) => {
+                  if (!checked) e.currentTarget.style.background = 'rgba(255,255,255,.02)'
+                }}
+                onMouseOut={(e) => {
+                  if (!checked) e.currentTarget.style.background = 'transparent'
                 }}
               >
                 <input
                   type="checkbox"
                   checked={checked}
                   onChange={() => toggle(opt.value)}
-                  style={{ accentColor: opt.accent ?? T.accent, cursor: 'pointer' }}
+                  style={{ accentColor: opt.accent ?? 'var(--app-accent)', cursor: 'pointer', width: 14, height: 14 }}
                 />
                 {opt.row}
               </label>
@@ -156,18 +168,18 @@ export function FilterBar() {
     () =>
       scopedMembers.map((m) => ({
         value: String(m.id),
-        accent: T.accent,
+        accent: 'var(--app-accent)',
         row: (
           <>
             <span
               style={{
-                width: 18,
-                height: 18,
+                width: 20,
+                height: 20,
                 borderRadius: '50%',
-                background: T.accentSoft,
-                color: T.accent,
-                fontSize: 9,
-                fontWeight: 700,
+                background: 'rgba(124, 106, 239, 0.2)',
+                color: 'var(--app-accent)',
+                fontSize: 10,
+                fontWeight: 800,
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -177,7 +189,7 @@ export function FilterBar() {
               {m.av}
             </span>
             <span>{m.name}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 10, color: T.textMuted }}>{m.role}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--app-text-muted)', fontWeight: 500 }}>{m.role}</span>
           </>
         ),
       })),
@@ -193,7 +205,7 @@ export function FilterBar() {
           accent: cfg.c,
           row: (
             <>
-              <span style={{ color: cfg.c, fontSize: 13 }}>{cfg.i}</span>
+              <span style={{ color: cfg.c, fontSize: 14 }}>{cfg.i}</span>
               <span>{s}</span>
             </>
           ),
@@ -206,10 +218,15 @@ export function FilterBar() {
   const sprintInScope = filters.sprint === 'all' || scopedSprints.some((s) => s.id === filters.sprint)
 
   return (
-    <div style={{ display: 'flex', gap: 7, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-      <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 600 }}>Lọc:</span>
+    <div className="glass-panel" style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center', padding: '12px 16px', borderRadius: 12, position: 'relative', zIndex: 40 }}>
+      <span style={{ fontSize: 13, color: 'var(--app-text-muted)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+        </svg>
+        Lọc:
+      </span>
 
-      <select value={filters.module} onChange={(e) => onModuleChange(e.target.value)} style={sel}>
+      <select className="input-premium" value={filters.module} onChange={(e) => onModuleChange(e.target.value)} style={sel}>
         <option value="all">Tất cả Project</option>
         {modules.map((m) => (
           <option key={m}>{m}</option>
@@ -217,6 +234,7 @@ export function FilterBar() {
       </select>
 
       <select
+        className="input-premium"
         value={sprintInScope ? filters.sprint : 'all'}
         onChange={(e) => set({ sprint: e.target.value })}
         style={sel}
@@ -235,19 +253,19 @@ export function FilterBar() {
         options={memberOptions}
         value={filters.members}
         onChange={(members) => set({ members })}
-        placeholder="Người"
+        placeholder="Assignee"
         selectedLabel={(n, first) => {
-          if (n === 0) return 'Người'
+          if (n === 0) return 'Assignee'
           if (n === 1 && first) {
             const m = scopedMembers.find((x) => String(x.id) === first.value)
             return m?.name ?? `${n} người`
           }
           return `${n} người`
         }}
-        minWidth={220}
+        minWidth={240}
       />
 
-      <select value={filters.priority} onChange={(e) => set({ priority: e.target.value })} style={sel}>
+      <select className="input-premium" value={filters.priority} onChange={(e) => set({ priority: e.target.value })} style={sel}>
         <option value="all">Priority</option>
         {PRIORITIES.map((p) => (
           <option key={p}>{p}</option>
@@ -264,22 +282,26 @@ export function FilterBar() {
 
       {active && (
         <button
+          className="btn-outline"
           onClick={clear}
           style={{
-            padding: '4px 10px',
-            borderRadius: 6,
-            border: `1px solid ${T.danger}`,
-            background: T.dangerSoft,
-            color: T.danger,
-            fontSize: 11,
-            fontWeight: 600,
+            padding: '6px 12px',
+            borderRadius: 8,
+            border: `1px solid rgba(248,113,113,.3)`,
+            background: 'rgba(248,113,113,.1)',
+            color: 'var(--app-danger, #F87171)',
+            fontSize: 13,
+            fontWeight: 700,
             cursor: 'pointer',
+            transition: 'all 0.2s'
           }}
         >
-          ✕ Xóa
+          ✕ Xóa Lọc
         </button>
       )}
-      <span style={{ marginLeft: 'auto', fontSize: 12, color: T.textMuted }}>{filteredCount} tasks</span>
+      <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--app-text-sec)', fontWeight: 600 }}>
+        Hiển thị <span style={{ color: 'var(--app-text)', fontWeight: 800 }}>{filteredCount}</span> tasks
+      </span>
     </div>
   )
 }

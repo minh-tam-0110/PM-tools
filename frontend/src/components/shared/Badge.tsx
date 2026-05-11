@@ -8,13 +8,15 @@ export function Badge({ children, color, bg, small }: Props) {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        padding: small ? '1px 6px' : '3px 9px',
-        borderRadius: 5,
-        fontSize: small ? 10 : 11,
-        fontWeight: 600,
+        padding: small ? '2px 8px' : '4px 10px',
+        borderRadius: 6,
+        fontSize: small ? 11 : 12,
+        fontWeight: 700,
         color,
         background: bg,
+        border: `1px solid ${color.replace(')', ', 0.2)').replace('rgb', 'rgba')}`, // fallback or if it's hex, just subtle
         whiteSpace: 'nowrap',
+        boxShadow: `0 2px 4px ${bg.replace(')', ', 0.5)').replace('rgb', 'rgba')}`,
       }}
     >
       {children}
