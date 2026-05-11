@@ -17,25 +17,41 @@
   --color-danger: #F87171;
   --color-info: #60A5FA;
 
-  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-sans: 'DM Sans', 'Inter', system-ui, sans-serif;
+}
+
+:root {
+  --app-bg: #0C0F17;
+  --app-surface: #111827;
+  --app-card: #151C2C;
+  --app-card-alt: #1A2236;
+  --app-border: #1F2A40;
+  --app-text: #E8ECF4;
+  --app-text-sec: #8B95AB;
+  --app-accent: #7C6AEF;
+  --app-accent-glow: rgba(124, 106, 239, 0.3);
+  --app-gradient-primary: linear-gradient(135deg, #7C6AEF 0%, #4F38D0 100%);
+  --app-glass-bg: rgba(17, 24, 39, 0.7);
+  --app-glass-border: rgba(255, 255, 255, 0.08);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body, #root {
   height: 100%;
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: var(--app-bg);
+  background-image: radial-gradient(circle at 50% 0%, rgba(124, 106, 239, 0.05) 0%, transparent 70%);
+  color: var(--app-text);
   font-family: var(--font-sans);
   font-feature-settings: "tnum" 1;
 }
 
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-thumb { background: #293550; border-radius: 3px; }
-::selection { background: #7C6AEF; color: #fff; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: var(--app-border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #3a4b73; }
+::-selection { background: var(--app-accent); color: #fff; }
 
-/* Proportional viewport scaling — baseline 1280px wide.
-   Scale up for big monitors (1.6K, 2K, 4K), down for small. */
+/* Viewport Scaling */
 :root { zoom: 1; }
 @media (max-width: 1100px) { :root { zoom: 0.92; } }
 @media (min-width: 1600px) { :root { zoom: 1.08; } }
@@ -43,9 +59,76 @@ html, body, #root {
 @media (min-width: 2400px) { :root { zoom: 1.28; } }
 @media (min-width: 3200px) { :root { zoom: 1.5; } }
 
+/* Animations */
+@keyframes spin-ring { to { transform: rotate(360deg); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scale-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes pulse-glow { 0% { box-shadow: 0 0 0 0 var(--app-accent-glow); } 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Premium Utility Classes */
+.glass-panel {
+  background: var(--app-glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--app-glass-border);
+}
+
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  border-color: rgba(124, 106, 239, 0.4);
+}
+
+.animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
+.animate-slide-up { animation: slide-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.animate-scale-in { animation: scale-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+.btn-primary {
+  background: var(--app-gradient-primary);
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 14px rgba(124, 106, 239, 0.3);
+  transition: all 0.2s ease;
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(124, 106, 239, 0.4);
+  filter: brightness(1.1);
+}
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-outline {
+  background: rgba(124,106,239,0.12);
+  color: var(--app-accent);
+  border: 1px solid var(--app-accent);
+  transition: all 0.2s ease;
+}
+.btn-outline:hover {
+  background: rgba(124,106,239,0.2);
+  box-shadow: 0 0 12px rgba(124, 106, 239, 0.2);
+}
+
+.input-premium {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+  transition: all 0.2s ease;
+}
+.input-premium:focus {
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 3px rgba(124, 106, 239, 0.15);
+  outline: none;
 }

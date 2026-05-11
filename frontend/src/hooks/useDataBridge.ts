@@ -39,6 +39,29 @@ export function useDataBridge() {
     return () => window.removeEventListener('message', handler)
   }, [])
 
+  // Auto-load cached scrape khi mount — reload trang không mất data
+  useEffect(() => {
+    let cancelled = false
+    bridgeApi
+      .last()
+      .then((r) => {
+        if (cancelled || !r) return
+        // Chỉ load nếu store rỗng — tránh ghi đè data người dùng vừa import/scrape
+        if (useTaskStore.getState().tasks.length > 0) return
+        const norm = normalizeImported({ tasks: r.tasks })
+        useTaskStore.getState().setAll(norm)
+        useConnStore.getState().setSrc('be')
+        if (r.hash) useConnStore.getState().setHash(r.hash)
+        if (r.extractedAt) useConnStore.getState().touchSync()
+      })
+      .catch(() => {
+        /* BE không chạy / chưa có cache → ignore */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const requestScrape = useCallback(() => {
     iframeRef.current?.contentWindow?.postMessage(
       JSON.stringify({ type: 'REQUEST_SCRAPE' }),
@@ -66,11 +89,17 @@ export function useDataBridge() {
     useConnStore.getState().setIframeSt('loading')
     try {
       const r = await bridgeApi.scrape()
-      const norm = normalizeImported({ tasks: r.tasks })
-      useTaskStore.getState().setAll(norm)
       useConnStore.getState().setSrc('be')
       useConnStore.getState().setIframeSt('connected')
       useConnStore.getState().touchSync()
+      // Skip re-normalize + re-render nếu hash không đổi
+      const prevHash = useConnStore.getState().lastHash
+      if (r.hash && prevHash === r.hash) {
+        return { ok: true, count: useTaskStore.getState().tasks.length }
+      }
+      const norm = normalizeImported({ tasks: r.tasks })
+      useTaskStore.getState().setAll(norm)
+      if (r.hash) useConnStore.getState().setHash(r.hash)
       return { ok: true, count: norm.tasks.length }
     } catch (e) {
       useConnStore.getState().setIframeSt('error')

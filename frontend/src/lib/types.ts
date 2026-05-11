@@ -39,9 +39,10 @@ export type Task = {
 
 export type Filters = {
   sprint: string
-  member: string
+  members: string[]
   priority: string
   module: string
+  statuses: string[]
 }
 
 export type ConnSrc = 'none' | 'iframe' | 'manual' | 'be'

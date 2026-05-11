@@ -1,4 +1,5 @@
-import { T } from '@/lib/constants'
+import { useEffect, useState } from 'react'
+import { bridgeApi, type BgWorkerStatus } from '@/lib/api'
 import { useConnStore, useFilterStore } from '@/stores'
 import { TabBar, type TabId } from '@/components/layout/TabBar'
 
@@ -18,11 +19,43 @@ export function Header({ view, onView, onRefresh, onConnect, onCreate }: Props) 
   const setSearch = useFilterStore((s) => s.setSearch)
   const busy = iframeSt === 'loading'
 
+  const [bgSt, setBgSt] = useState<BgWorkerStatus | null>(null)
+  const [countdown, setCountdown] = useState<number | null>(null)
+
+  // Poll bg-worker status every 10s
+  useEffect(() => {
+    const poll = () => bridgeApi.bgStatus().then(setBgSt).catch(() => {})
+    poll()
+    const id = setInterval(poll, 10_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Tick countdown every 1s from last_run + interval
+  useEffect(() => {
+    if (!bgSt?.last_run || !bgSt.interval) { setCountdown(null); return }
+    const tick = () => {
+      const next = new Date(bgSt.last_run!).getTime() + bgSt.interval * 1000
+      setCountdown(Math.max(0, Math.round((next - Date.now()) / 1000)))
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [bgSt?.last_run, bgSt?.interval])
+
+  const scraping = busy || (bgSt?.in_progress ?? false)
+
+  const fmtCountdown = (s: number) => {
+    if (s <= 0) return 'đang chờ...'
+    const m = Math.floor(s / 60)
+    const sec = s % 60
+    return m > 0 ? `${m}m ${sec}s` : `${sec}s`
+  }
+
   const dotColor =
-    src === 'iframe' ? T.ok
-    : src === 'be' ? T.ok
-    : src === 'manual' ? T.info
-    : T.warn
+    src === 'iframe' ? 'var(--app-ok, #34D399)'
+    : src === 'be' ? 'var(--app-ok, #34D399)'
+    : src === 'manual' ? 'var(--app-info, #60A5FA)'
+    : 'var(--app-warn, #FBBF24)'
   const label =
     src === 'iframe' ? 'Live Connected'
     : src === 'be' ? 'BE Scraped'
@@ -30,41 +63,45 @@ export function Header({ view, onView, onRefresh, onConnect, onCreate }: Props) 
     : 'No Data'
 
   return (
-    <div
+    <header
+      className="glass-panel"
       style={{
-        background: `linear-gradient(135deg,${T.surface},${T.card})`,
-        borderBottom: `1px solid ${T.border}`,
-        padding: '20px clamp(16px, 2vw, 40px) 16px',
-        marginBottom: 20,
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+        padding: '16px clamp(16px, 3vw, 40px)',
+        borderBottom: '1px solid var(--app-glass-border)',
+        marginBottom: 24,
       }}
     >
-      <div style={{ width: '100%' }}>
+      <div style={{ maxWidth: 1600, margin: '0 auto' }}>
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: 14,
+            marginBottom: 16,
             flexWrap: 'wrap',
-            gap: 10,
+            gap: 16,
           }}
         >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <div
                 style={{
-                  width: 7,
-                  height: 7,
+                  width: 8,
+                  height: 8,
                   borderRadius: '50%',
                   background: dotColor,
-                  boxShadow: `0 0 8px ${dotColor}`,
+                  boxShadow: `0 0 10px ${dotColor}`,
+                  animation: scraping ? 'pulse-glow 1.5s infinite' : 'none',
                 }}
               />
               <span
                 style={{
-                  fontSize: 10,
-                  color: src === 'iframe' || src === 'be' ? T.ok : T.textSec,
-                  fontWeight: 600,
+                  fontSize: 11,
+                  color: src === 'iframe' || src === 'be' ? 'var(--app-ok, #34D399)' : 'var(--app-text-sec)',
+                  fontWeight: 700,
                   letterSpacing: 1.2,
                   textTransform: 'uppercase',
                 }}
@@ -72,77 +109,82 @@ export function Header({ view, onView, onRefresh, onConnect, onCreate }: Props) 
                 {label}
               </span>
               {lastSync && (
-                <span style={{ fontSize: 10, color: T.textMuted }}>
+                <span style={{ fontSize: 11, color: 'var(--app-text-muted)' }}>
                   • {lastSync.toLocaleTimeString('vi-VN')}
                 </span>
               )}
             </div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: T.text, letterSpacing: -0.5 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--app-text)', letterSpacing: '-0.5px' }}>
               Project Task Progress
             </h1>
-            <p style={{ fontSize: 12, color: T.textSec, marginTop: 2 }}>
+            <p style={{ fontSize: 13, color: 'var(--app-text-sec)', marginTop: 2 }}>
               Wolffun Game — Review 360° Integration
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
                 placeholder="Tìm task, người..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                className="input-premium"
                 style={{
-                  padding: '7px 10px 7px 30px',
-                  borderRadius: 8,
-                  border: `1px solid ${T.border}`,
-                  background: T.bg,
-                  color: T.text,
-                  fontSize: 12,
-                  width: 180,
-                  outline: 'none',
+                  padding: '8px 12px 8px 34px',
+                  borderRadius: 10,
+                  fontSize: 13,
+                  width: 220,
                 }}
               />
               <span
                 style={{
                   position: 'absolute',
-                  left: 9,
+                  left: 12,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  color: T.textMuted,
-                  fontSize: 13,
+                  color: 'var(--app-text-muted)',
+                  fontSize: 14,
                 }}
               >
                 ⌕
               </span>
             </div>
-            <button
-              onClick={onRefresh}
-              disabled={busy}
-              title="Re-scrape Review 360°"
-              style={{
-                padding: '7px 14px',
-                borderRadius: 8,
-                border: `1px solid ${T.border}`,
-                background: T.surface,
-                color: T.textSec,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: busy ? 'not-allowed' : 'pointer',
-                opacity: busy ? 0.6 : 1,
-              }}
-            >
-              {busy ? '⟳ Đang scrape...' : '↻ Refresh'}
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <button
+                onClick={onRefresh}
+                disabled={scraping}
+                title="Re-scrape Review 360°"
+                className={scraping ? '' : 'btn-outline'}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: scraping ? 'wait' : 'pointer',
+                  background: scraping ? 'rgba(96,165,250,0.1)' : undefined,
+                  border: scraping ? '1px solid rgba(96,165,250,0.3)' : undefined,
+                  color: scraping ? 'var(--app-info, #60A5FA)' : undefined,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                {scraping ? '⟳ Đang scrape...' : '↻ Refresh'}
+              </button>
+              {!scraping && countdown !== null && (
+                <span style={{ fontSize: 11, color: 'var(--app-text-muted)', whiteSpace: 'nowrap', position: 'absolute', transform: 'translateY(36px)' }}>
+                  next: {fmtCountdown(countdown)}
+                </span>
+              )}
+            </div>
             <button
               onClick={onConnect}
+              className="btn-outline"
               style={{
-                padding: '7px 14px',
+                padding: '8px 16px',
                 borderRadius: 8,
-                border: `1px solid ${T.accent}`,
-                background: T.accentSoft,
-                color: T.accent,
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: 600,
                 cursor: 'pointer',
               }}
@@ -151,24 +193,25 @@ export function Header({ view, onView, onRefresh, onConnect, onCreate }: Props) 
             </button>
             <button
               onClick={onCreate}
+              className="btn-primary"
               style={{
-                padding: '7px 14px',
+                padding: '8px 16px',
                 borderRadius: 8,
-                border: 'none',
-                background: T.accent,
-                color: '#fff',
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: 600,
                 cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
-              ✚ Tạo Task
+              <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Tạo Task
             </button>
           </div>
         </div>
 
         <TabBar value={view} onChange={onView} />
       </div>
-    </div>
+    </header>
   )
 }

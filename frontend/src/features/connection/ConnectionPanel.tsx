@@ -1,6 +1,6 @@
 /** Connection modal — BE bridge / Auto iframe / Manual JSON. Spec: docs/features/connection.md */
 import { useEffect, useState } from 'react'
-import { REVIEW_360_URL, T } from '@/lib/constants'
+import { REVIEW_360_URL } from '@/lib/constants'
 import { useConnStore } from '@/stores'
 import { bridgeApi, type BridgeStatus, ApiError } from '@/lib/api'
 import { normalizeImported } from '@/lib/normalize'
@@ -32,28 +32,30 @@ export function ConnectionPanel({ iframeRef, onImportJSON, onClose }: Props) {
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 100,
-        backdropFilter: 'blur(4px)',
+        backdropFilter: 'blur(8px)',
       }}
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="glass-panel animate-scale-in"
         style={{
-          background: T.card,
-          border: `1px solid ${T.border}`,
-          borderRadius: 16,
+          background: 'var(--app-card)',
+          border: `1px solid var(--app-border)`,
+          borderRadius: 20,
           width: 640,
           maxHeight: '85vh',
           overflow: 'auto',
-          padding: 28,
+          padding: 32,
+          boxShadow: '0 24px 48px rgba(0,0,0,0.2)'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: T.text }}>Kết nối Review 360°</div>
-            <div style={{ fontSize: 12, color: T.textSec, marginTop: 2 }}>Cào data về dashboard</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--app-text)' }}>Kết nối Review 360°</div>
+            <div style={{ fontSize: 13, color: 'var(--app-text-sec)', marginTop: 4, fontWeight: 500 }}>Cào data về dashboard</div>
           </div>
-          <button onClick={onClose} style={closeBtn}>✕</button>
+          <button className="btn-outline" onClick={onClose} style={closeBtn}>✕</button>
         </div>
 
         <div style={tabBar}>
@@ -67,8 +69,9 @@ export function ConnectionPanel({ iframeRef, onImportJSON, onClose }: Props) {
               onClick={() => setTab(t.id)}
               style={{
                 ...tabBtn,
-                background: tab === t.id ? T.accent : 'transparent',
-                color: tab === t.id ? '#fff' : T.textSec,
+                background: tab === t.id ? 'var(--app-gradient-primary)' : 'transparent',
+                color: tab === t.id ? '#fff' : 'var(--app-text-sec)',
+                boxShadow: tab === t.id ? '0 4px 12px rgba(124, 106, 239, 0.3)' : 'none',
               }}
             >
               {t.l}
@@ -79,28 +82,28 @@ export function ConnectionPanel({ iframeRef, onImportJSON, onClose }: Props) {
         {tab === 'be' && <BeBridgeTab onClose={onClose} />}
 
         {tab === 'iframe' && (
-          <div>
+          <div className="animate-fade-in">
             <div style={infoBox}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 8 }}>Cách hoạt động:</div>
-              <div style={{ fontSize: 12, color: T.textSec, lineHeight: 1.7 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--app-text)', marginBottom: 8 }}>Cách hoạt động:</div>
+              <div style={{ fontSize: 13, color: 'var(--app-text-sec)', lineHeight: 1.7 }}>
                 Iframe load trực tiếp <code>wolffun-review.web.app</code> + lắng nghe <code>postMessage</code>.
                 <br />
-                <span style={{ color: T.warn, fontSize: 11, display: 'block', marginTop: 8 }}>
+                <span style={{ color: 'var(--app-warn, #FBBF24)', fontSize: 12, display: 'block', marginTop: 10, fontWeight: 600 }}>
                   ⚠ Firebase thường block iframe (X-Frame-Options). Nếu lỗi, dùng tab "BE Bridge" hoặc "Manual JSON".
                 </span>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: iframeStColor(iframeSt) }} />
-              <span style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{iframeStLabel(iframeSt)}</span>
-              <button onClick={() => setIframeSt('loading')} style={primaryBtn}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: iframeStColor(iframeSt), boxShadow: `0 0 8px ${iframeStColor(iframeSt)}` }} />
+              <span style={{ fontSize: 14, color: 'var(--app-text)', fontWeight: 700 }}>{iframeStLabel(iframeSt)}</span>
+              <button className="btn-primary" onClick={() => setIframeSt('loading')} style={{...primaryBtn, marginLeft: 'auto'}}>
                 {iframeSt === 'connected' ? 'Reconnect' : 'Kết nối'}
               </button>
             </div>
 
             {iframeSt === 'loading' && (
-              <div style={{ marginTop: 16, borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.border}` }}>
+              <div style={{ marginTop: 20, borderRadius: 12, overflow: 'hidden', border: `1px solid var(--app-border)` }}>
                 <iframe
                   ref={iframeRef}
                   src={REVIEW_360_URL}
@@ -113,29 +116,33 @@ export function ConnectionPanel({ iframeRef, onImportJSON, onClose }: Props) {
         )}
 
         {tab === 'manual' && (
-          <div>
-            <div style={{ fontSize: 12, color: T.textSec, marginBottom: 12, lineHeight: 1.6 }}>
+          <div className="animate-fade-in">
+            <div style={{ fontSize: 13, color: 'var(--app-text-sec)', marginBottom: 16, lineHeight: 1.6 }}>
               Paste mảng JSON từ Review 360°. Tool tự map các field phổ biến: id, title/name/summary, assignee, status, priority,
               deadline/dueDate, sprint, sp/storyPoints...
             </div>
             <textarea
+              className="input-premium"
               value={json}
               onChange={(e) => setJson(e.target.value)}
               placeholder='[{"id":"TASK-001","title":"...","assignee":"...","status":"To Do","priority":"High","module":"...","deadline":"YYYY-MM-DD","sprint":"...","sp":3}]'
               style={textarea}
             />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
-              <button onClick={() => setRes(onImportJSON(json))} style={successBtn}>Import</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
+              <button className="btn-primary" onClick={() => setRes(onImportJSON(json))} style={{...successBtn, background: 'var(--app-ok, #34D399)'}}>Import</button>
             </div>
             {res && (
               <div
+                className="animate-fade-in"
                 style={{
-                  marginTop: 12,
-                  padding: 10,
-                  borderRadius: 8,
-                  fontSize: 12,
-                  background: res.ok ? T.okSoft : T.dangerSoft,
-                  color: res.ok ? T.ok : T.danger,
+                  marginTop: 16,
+                  padding: 12,
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: res.ok ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)',
+                  color: res.ok ? 'var(--app-ok, #34D399)' : 'var(--app-danger, #F87171)',
+                  border: `1px solid ${res.ok ? 'rgba(52,211,153,0.2)' : 'rgba(248,113,113,0.2)'}`
                 }}
               >
                 {res.ok ? `✓ Đã import ${res.count} tasks!` : `✕ Lỗi: ${res.err}`}
@@ -216,51 +223,54 @@ function BeBridgeTab({ onClose }: { onClose: () => void }) {
   const cookies = status?.exists ? status.cookies ?? 0 : 0
 
   return (
-    <div>
+    <div className="animate-fade-in">
       <div style={infoBox}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 8 }}>Cách hoạt động:</div>
-        <div style={{ fontSize: 12, color: T.textSec, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--app-text)', marginBottom: 8 }}>Cách hoạt động:</div>
+        <div style={{ fontSize: 13, color: 'var(--app-text-sec)', lineHeight: 1.7 }}>
           1. <b>Login</b> — backend mở Chromium headed, bạn login Wolffun trong popup.
           <br />
-          2. Cookie/session lưu lại ở <code>backend/data/review360_state.json</code>.
+          2. Cookie/session lưu lại ở <code style={{background: 'rgba(255,255,255,0.05)', padding: '2px 4px', borderRadius: 4}}>backend/data/review360_state.json</code>.
           <br />
-          3. <b>Scrape</b> — backend chạy headless, đọc DOM <code>/my-work</code>, return tasks.
+          3. <b>Scrape</b> — backend chạy headless, đọc DOM <code style={{background: 'rgba(255,255,255,0.05)', padding: '2px 4px', borderRadius: 4}}>/my-work</code>, return tasks.
           <br />
-          <span style={{ color: T.warn, fontSize: 11, display: 'block', marginTop: 8 }}>
+          <span style={{ color: 'var(--app-warn, #FBBF24)', fontSize: 12, display: 'block', marginTop: 10, fontWeight: 600 }}>
             ⚠ Cần chạy backend (<code>python run.py --dev</code>) và cài Playwright (<code>playwright install chromium</code>).
           </span>
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-        <div style={{ width: 10, height: 10, borderRadius: '50%', background: hasState ? T.ok : T.textMuted }} />
-        <span style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <div style={{ width: 10, height: 10, borderRadius: '50%', background: hasState ? 'var(--app-ok, #34D399)' : 'var(--app-text-muted)', boxShadow: `0 0 8px ${hasState ? 'var(--app-ok, #34D399)' : 'transparent'}` }} />
+        <span style={{ fontSize: 14, color: 'var(--app-text)', fontWeight: 700 }}>
           {hasState ? `Đã lưu session (${cookies} cookies)` : 'Chưa login'}
         </span>
-        <button onClick={refreshStatus} style={{ ...ghostBtn, marginLeft: 'auto' }}>↻</button>
+        <button className="btn-outline" onClick={refreshStatus} style={{ ...ghostBtn, marginLeft: 'auto' }}>↻ Refresh</button>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button onClick={doLogin} disabled={!!busy} style={{ ...primaryBtn, opacity: busy ? 0.6 : 1 }}>
-          {busy === 'login' ? 'Đang login...' : '🔐 Login (mở Chromium)'}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <button className="btn-primary" onClick={doLogin} disabled={!!busy} style={{ ...primaryBtn, opacity: busy ? 0.6 : 1, background: 'var(--app-info, #60A5FA)' }}>
+          {busy === 'login' ? 'Đang login...' : '🔐 Login'}
         </button>
-        <button onClick={doScrape} disabled={!hasState || !!busy} style={{ ...successBtn, opacity: !hasState || busy ? 0.6 : 1 }}>
+        <button className="btn-primary" onClick={doScrape} disabled={!hasState || !!busy} style={{ ...successBtn, opacity: !hasState || busy ? 0.6 : 1, background: 'var(--app-ok, #34D399)' }}>
           {busy === 'scrape' ? 'Scraping...' : '📥 Scrape /my-work'}
         </button>
-        <button onClick={doDump} disabled={!hasState || !!busy} style={{ ...ghostBtn, opacity: !hasState || busy ? 0.6 : 1 }}>
-          {busy === 'dump' ? '...' : '🛠 Dump DOM (debug)'}
+        <button className="btn-outline" onClick={doDump} disabled={!hasState || !!busy} style={{ ...ghostBtn, opacity: !hasState || busy ? 0.6 : 1 }}>
+          {busy === 'dump' ? '...' : '🛠 Dump DOM'}
         </button>
       </div>
 
       {msg && (
         <div
+          className="animate-fade-in"
           style={{
-            marginTop: 14,
-            padding: 10,
-            borderRadius: 8,
-            fontSize: 12,
-            background: msg.kind === 'ok' ? T.okSoft : T.dangerSoft,
-            color: msg.kind === 'ok' ? T.ok : T.danger,
+            marginTop: 16,
+            padding: 12,
+            borderRadius: 10,
+            fontSize: 13,
+            fontWeight: 600,
+            background: msg.kind === 'ok' ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)',
+            color: msg.kind === 'ok' ? 'var(--app-ok, #34D399)' : 'var(--app-danger, #F87171)',
+            border: `1px solid ${msg.kind === 'ok' ? 'rgba(52,211,153,0.2)' : 'rgba(248,113,113,0.2)'}`
           }}
         >
           {msg.text}
@@ -278,7 +288,7 @@ function errMsg(e: unknown): string {
 }
 
 function iframeStColor(s: string): string {
-  return s === 'connected' ? T.ok : s === 'loading' ? T.warn : s === 'error' ? T.danger : T.textMuted
+  return s === 'connected' ? 'var(--app-ok, #34D399)' : s === 'loading' ? 'var(--app-warn, #FBBF24)' : s === 'error' ? 'var(--app-danger, #F87171)' : 'var(--app-text-muted)'
 }
 
 function iframeStLabel(s: string): string {
@@ -291,81 +301,90 @@ const closeBtn: React.CSSProperties = {
   width: 32,
   height: 32,
   borderRadius: 8,
-  border: `1px solid ${T.border}`,
-  background: T.surface,
-  color: T.text,
+  border: `1px solid var(--app-border)`,
+  background: 'var(--app-surface)',
+  color: 'var(--app-text)',
   cursor: 'pointer',
   fontSize: 16,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 }
 
 const tabBar: React.CSSProperties = {
   display: 'flex',
-  gap: 2,
-  marginBottom: 20,
-  background: T.surface,
-  borderRadius: 8,
-  padding: 3,
+  gap: 4,
+  marginBottom: 24,
+  background: 'var(--app-surface)',
+  borderRadius: 10,
+  padding: 4,
+  border: '1px solid var(--app-border)'
 }
 
 const tabBtn: React.CSSProperties = {
   flex: 1,
-  padding: '8px 16px',
-  borderRadius: 6,
+  padding: '10px 16px',
+  borderRadius: 8,
   border: 'none',
   cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 600,
+  fontSize: 14,
+  fontWeight: 700,
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
 }
 
 const infoBox: React.CSSProperties = {
-  background: T.surface,
-  borderRadius: 10,
+  background: 'rgba(255,255,255,0.03)',
+  border: '1px solid var(--app-border)',
+  borderRadius: 12,
   padding: 16,
-  marginBottom: 16,
+  marginBottom: 20,
 }
 
 const primaryBtn: React.CSSProperties = {
-  padding: '8px 20px',
+  padding: '10px 24px',
   borderRadius: 8,
   border: 'none',
-  background: T.accent,
+  background: 'var(--app-accent)',
   color: '#fff',
-  fontSize: 13,
-  fontWeight: 600,
+  fontSize: 14,
+  fontWeight: 700,
   cursor: 'pointer',
+  transition: 'all 0.2s',
 }
 
 const successBtn: React.CSSProperties = {
-  padding: '8px 20px',
+  padding: '10px 24px',
   borderRadius: 8,
   border: 'none',
-  background: T.ok,
+  background: 'var(--app-ok, #34D399)',
   color: '#fff',
-  fontSize: 13,
-  fontWeight: 600,
+  fontSize: 14,
+  fontWeight: 700,
   cursor: 'pointer',
+  transition: 'all 0.2s',
 }
 
 const ghostBtn: React.CSSProperties = {
-  padding: '8px 14px',
+  padding: '10px 16px',
   borderRadius: 8,
-  border: `1px solid ${T.border}`,
-  background: T.surface,
-  color: T.textSec,
-  fontSize: 12,
-  fontWeight: 600,
+  border: `1px solid var(--app-border)`,
+  background: 'var(--app-surface)',
+  color: 'var(--app-text-sec)',
+  fontSize: 13,
+  fontWeight: 700,
   cursor: 'pointer',
+  transition: 'all 0.2s',
 }
 
 const textarea: React.CSSProperties = {
   width: '100%',
   height: 200,
-  background: T.bg,
-  color: T.text,
-  border: `1px solid ${T.border}`,
-  borderRadius: 8,
-  padding: 12,
-  fontSize: 12,
+  background: 'var(--app-bg)',
+  color: 'var(--app-text)',
+  border: `1px solid var(--app-border)`,
+  borderRadius: 12,
+  padding: 16,
+  fontSize: 13,
   fontFamily: 'monospace',
   resize: 'vertical',
   outline: 'none',

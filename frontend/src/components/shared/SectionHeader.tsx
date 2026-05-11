@@ -1,16 +1,15 @@
 import type { ReactNode } from 'react'
-import { T } from '@/lib/constants'
 
 type Props = { children: ReactNode; sub?: ReactNode; right?: ReactNode }
 
 export function SectionHeader({ children, sub, right }: Props) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20 }}>
       <div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{children}</div>
-        {sub && <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{sub}</div>}
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--app-text)', letterSpacing: '-0.5px' }}>{children}</div>
+        {sub && <div style={{ fontSize: 13, color: 'var(--app-text-muted)', marginTop: 4 }}>{sub}</div>}
       </div>
-      {right}
+      {right && <div>{right}</div>}
     </div>
   )
 }

@@ -4,9 +4,10 @@ import type { Filters, Task } from './types'
 export function applyFilters(tasks: Task[], f: Filters, search: string = ''): Task[] {
   let r = tasks.filter((t) => {
     if (f.sprint !== 'all' && t.sprint?.id !== f.sprint) return false
-    if (f.member !== 'all' && t.assignee?.id !== Number(f.member)) return false
+    if (f.members.length > 0 && !f.members.includes(String(t.assignee?.id))) return false
     if (f.priority !== 'all' && t.priority !== f.priority) return false
     if (f.module !== 'all' && t.module !== f.module) return false
+    if (f.statuses.length > 0 && !f.statuses.includes(t.status)) return false
     return true
   })
   if (search) {
@@ -23,10 +24,15 @@ export function applyFilters(tasks: Task[], f: Filters, search: string = ''): Ta
 
 export const EMPTY_FILTERS: Filters = {
   sprint: 'all',
-  member: 'all',
+  members: [],
   priority: 'all',
   module: 'all',
+  statuses: [],
 }
 
 export const hasActiveFilter = (f: Filters): boolean =>
-  Object.values(f).some((v) => v !== 'all')
+  f.sprint !== 'all' ||
+  f.members.length > 0 ||
+  f.priority !== 'all' ||
+  f.module !== 'all' ||
+  f.statuses.length > 0

@@ -72,6 +72,17 @@ function normSprint(v: unknown, fallback?: Partial<Sprint>): Sprint {
   return { id: 's0', name: 'Backlog', start: '', end: '', status: 'active', committed: 0, completed: 0 }
 }
 
+function normDeadline(v: unknown): string {
+  // Trả về "YYYY-MM-DD" local-time, hoặc "" nếu không parse được.
+  // Scraper có thể trả "" (không có deadline), "YYYY-MM-DD", hoặc ISO với time —
+  // ta cần normalize về 1 dạng để calendar key-match đúng.
+  if (typeof v !== 'string' || !v) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+  const d = new Date(v)
+  if (!isNaN(d.getTime())) return fmtDate(d)
+  return ''
+}
+
 function defaultProgress(st: Status): number {
   if (st === 'Done') return 100
   if (st === 'Review') return 85
@@ -82,7 +93,8 @@ function defaultProgress(st: Status): number {
 export function normTask(raw: unknown, idx: number = 0, today: Date = new Date()): Task {
   const o = (raw ?? {}) as Record<string, unknown>
   const status = mapStatus(o.status)
-  const deadline = (o.deadline as string) ?? (o.dueDate as string) ?? (o.due as string) ?? fmtDate(new Date(Date.now() + 7 * 864e5))
+  const rawDeadline = (o.deadline as string) ?? (o.dueDate as string) ?? (o.due as string) ?? ''
+  const deadline = normDeadline(rawDeadline)
   const sprintStatus = mapSprintStatus(o.sprintStatus)
   return {
     id: (o.id as string) ?? (o.taskId as string) ?? `T-${String(idx + 1).padStart(3, '0')}`,

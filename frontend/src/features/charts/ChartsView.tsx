@@ -19,7 +19,7 @@ import {
 } from 'recharts'
 import { useFilterStore, useTaskStore } from '@/stores'
 import { applyFilters } from '@/lib/filter'
-import { stOf, STATUSES, T } from '@/lib/constants'
+import { stOf, STATUSES } from '@/lib/constants'
 import { Card } from '@/components/shared/Card'
 import { ChartTooltip } from '@/components/shared/ChartTooltip'
 import { SectionHeader } from '@/components/shared/SectionHeader'
@@ -86,27 +86,27 @@ export function ChartsView() {
   const avgVel = velData.length ? Math.round(_.meanBy(velData, 'completed')) : 0
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+    <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
         {burn.length > 0 && (
-          <Card style={{ flex: 1.2, minWidth: 320 }} glow>
+          <Card style={{ flex: 1.2, minWidth: 360 }} glow hoverable={false}>
             <SectionHeader sub={active ? `${active.name} • ${active.start} → ${active.end}` : ''}>🔥 Sprint Burndown</SectionHeader>
-            <ResponsiveContainer width="100%" height={240}>
+            <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={burn} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="ba" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={T.info} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={T.info} stopOpacity={0} />
+                    <stop offset="5%" stopColor="var(--app-info)" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="var(--app-info)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-                <XAxis dataKey="day" tick={{ fill: T.textMuted, fontSize: 11 }} stroke={T.border} />
-                <YAxis tick={{ fill: T.textMuted, fontSize: 11 }} stroke={T.border} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--app-border-light)" />
+                <XAxis dataKey="day" tick={{ fill: 'var(--app-text-muted)', fontSize: 12 }} stroke="var(--app-border)" />
+                <YAxis tick={{ fill: 'var(--app-text-muted)', fontSize: 12 }} stroke="var(--app-border)" />
                 <Tooltip content={<ChartTooltip />} />
                 <Line
                   type="monotone"
                   dataKey="ideal"
-                  stroke={T.textMuted}
+                  stroke="var(--app-text-muted)"
                   strokeDasharray="6 4"
                   strokeWidth={2}
                   dot={false}
@@ -115,10 +115,10 @@ export function ChartsView() {
                 <Area
                   type="monotone"
                   dataKey="actual"
-                  stroke={T.info}
-                  strokeWidth={2.5}
+                  stroke="var(--app-info, #60A5FA)"
+                  strokeWidth={3}
                   fill="url(#ba)"
-                  dot={{ r: 3, fill: T.info, strokeWidth: 0 }}
+                  dot={{ r: 4, fill: 'var(--app-info, #60A5FA)', strokeWidth: 0 }}
                   name="Thực tế"
                 />
               </AreaChart>
@@ -127,60 +127,60 @@ export function ChartsView() {
         )}
 
         {velData.length > 0 && (
-          <Card style={{ flex: 1, minWidth: 280 }}>
+          <Card style={{ flex: 1, minWidth: 320 }} hoverable={false}>
             <SectionHeader sub="Committed vs Completed SP">⚡ Velocity</SectionHeader>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={velData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }} barGap={4}>
-                <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-                <XAxis dataKey="name" tick={{ fill: T.textMuted, fontSize: 11 }} stroke={T.border} />
-                <YAxis tick={{ fill: T.textMuted, fontSize: 11 }} stroke={T.border} />
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={velData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }} barGap={6}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--app-border-light)" />
+                <XAxis dataKey="name" tick={{ fill: 'var(--app-text-muted)', fontSize: 12 }} stroke="var(--app-border)" />
+                <YAxis tick={{ fill: 'var(--app-text-muted)', fontSize: 12 }} stroke="var(--app-border)" />
                 <Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="committed" name="Committed" radius={[4, 4, 0, 0]} fill={T.borderLight} barSize={20} />
-                <Bar dataKey="completed" name="Completed" radius={[4, 4, 0, 0]} barSize={20}>
+                <Bar dataKey="committed" name="Committed" radius={[4, 4, 0, 0]} fill="rgba(255,255,255,0.1)" barSize={24} />
+                <Bar dataKey="completed" name="Completed" radius={[4, 4, 0, 0]} barSize={24}>
                   {velData.map((e, i) => (
-                    <Cell key={i} fill={e.completed >= e.committed ? T.ok : T.warn} />
+                    <Cell key={i} fill={e.completed >= e.committed ? 'var(--app-ok, #34D399)' : 'var(--app-warn, #FBBF24)'} />
                   ))}
                 </Bar>
-                <ReferenceLine y={avgVel} stroke={T.accent} strokeDasharray="5 3" />
+                <ReferenceLine y={avgVel} stroke="var(--app-accent)" strokeDasharray="5 3" />
               </BarChart>
             </ResponsiveContainer>
-            <div style={{ textAlign: 'center', fontSize: 12, color: T.textSec, marginTop: 6 }}>
-              Avg: <span style={{ color: T.accent, fontWeight: 700 }}>{avgVel} SP/sprint</span>
+            <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--app-text-sec)', marginTop: 12, fontWeight: 600 }}>
+              Avg: <span style={{ color: 'var(--app-accent)', fontWeight: 800 }}>{avgVel} SP/sprint</span>
             </div>
           </Card>
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        <Card style={{ flex: 1.2, minWidth: 320 }}>
+      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+        <Card style={{ flex: 1.2, minWidth: 360 }} hoverable={false}>
           <SectionHeader sub="Task theo trạng thái mỗi người">👥 Team Distribution</SectionHeader>
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={280}>
             <BarChart data={perPerson} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-              <XAxis dataKey="name" tick={{ fill: T.textMuted, fontSize: 11 }} stroke={T.border} />
-              <YAxis tick={{ fill: T.textMuted, fontSize: 11 }} stroke={T.border} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--app-border-light)" />
+              <XAxis dataKey="name" tick={{ fill: 'var(--app-text-muted)', fontSize: 12 }} stroke="var(--app-border)" />
+              <YAxis tick={{ fill: 'var(--app-text-muted)', fontSize: 12 }} stroke="var(--app-border)" />
               <Tooltip content={<ChartTooltip />} />
               {STATUSES.map((s) => (
-                <Bar key={s} dataKey={s} stackId="a" fill={stOf(s).c} name={s} barSize={26} />
+                <Bar key={s} dataKey={s} stackId="a" fill={stOf(s).c} name={s} barSize={32} />
               ))}
             </BarChart>
           </ResponsiveContainer>
         </Card>
 
-        <Card style={{ flex: 1, minWidth: 260 }}>
+        <Card style={{ flex: 1, minWidth: 300 }} hoverable={false}>
           <SectionHeader>📊 Status</SectionHeader>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <ResponsiveContainer width="50%" height={200}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <ResponsiveContainer width="50%" height={240}>
               <PieChart>
                 <Pie
                   data={pieData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={45}
-                  outerRadius={70}
+                  innerRadius={55}
+                  outerRadius={85}
                   dataKey="value"
                   stroke="none"
-                  paddingAngle={3}
+                  paddingAngle={4}
                 >
                   {pieData.map((e, i) => (
                     <Cell key={i} fill={e.color} />
@@ -189,12 +189,12 @@ export function ChartsView() {
                 <Tooltip content={<ChartTooltip />} />
               </PieChart>
             </ResponsiveContainer>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
               {pieData.map((p) => (
-                <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 9, height: 9, borderRadius: 3, background: p.color }} />
-                  <span style={{ fontSize: 12, color: T.textSec, flex: 1 }}>{p.name}</span>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: T.text }}>{p.value}</span>
+                <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 12, height: 12, borderRadius: 4, background: p.color, boxShadow: `0 0 8px ${p.color}` }} />
+                  <span style={{ fontSize: 13, color: 'var(--app-text-sec)', flex: 1, fontWeight: 600 }}>{p.name}</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--app-text)' }}>{p.value}</span>
                 </div>
               ))}
             </div>

@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import _ from 'lodash'
 import { useFilterStore, useTaskStore } from '@/stores'
 import { applyFilters } from '@/lib/filter'
-import { stOf, T } from '@/lib/constants'
+import { stOf } from '@/lib/constants'
 import { Badge } from '@/components/shared/Badge'
 import { Card } from '@/components/shared/Card'
 import { MetricCard } from '@/components/shared/MetricCard'
@@ -40,17 +40,17 @@ export function OverviewView() {
   }, [ft])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <MetricCard label="Hoàn thành" value={`${m.pct}%`} sub={`${m.done}/${m.total} tasks`} color={T.ok} icon="✓" />
-        <MetricCard label="Overdue" value={m.over} sub="cần xử lý" color={m.over > 0 ? T.danger : T.ok} icon="⚠" />
-        <MetricCard label="Đang làm" value={m.prog} sub={`${m.rev} đang review`} color={T.info} icon="◐" />
-        <MetricCard label="Story Points" value={`${m.dSP}/${m.tSP}`} sub="SP done" color={T.accent} icon="◆" />
+    <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <MetricCard label="Hoàn thành" value={`${m.pct}%`} sub={`${m.done}/${m.total} tasks`} color="var(--app-ok, #34D399)" icon="✓" />
+        <MetricCard label="Overdue" value={m.over} sub="cần xử lý" color={m.over > 0 ? 'var(--app-danger, #F87171)' : 'var(--app-ok, #34D399)'} icon="⚠" />
+        <MetricCard label="Đang làm" value={m.prog} sub={`${m.rev} đang review`} color="var(--app-info, #60A5FA)" icon="◐" />
+        <MetricCard label="Story Points" value={`${m.dSP}/${m.tSP}`} sub="SP done" color="var(--app-accent)" icon="◆" />
       </div>
 
       <Card>
         <SectionHeader>Phân bố trạng thái</SectionHeader>
-        <div style={{ display: 'flex', gap: 3, height: 26, borderRadius: 7, overflow: 'hidden', marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 4, height: 28, borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>
           {m.sts.map((s) => {
             const c = ft.filter((t) => t.status === s).length
             const p = m.total ? (c / m.total) * 100 : 0
@@ -64,10 +64,11 @@ export function OverviewView() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 10,
-                  fontWeight: 700,
+                  fontSize: 11,
+                  fontWeight: 800,
                   color: '#fff',
-                  minWidth: p > 6 ? 30 : 0,
+                  minWidth: p > 6 ? 36 : 0,
+                  transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               >
                 {p > 8 && `${Math.round(p)}%`}
@@ -75,12 +76,12 @@ export function OverviewView() {
             )
           })}
         </div>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
           {m.sts.map((s) => (
-            <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
-              <div style={{ width: 9, height: 9, borderRadius: 2, background: stOf(s).c }} />
-              <span style={{ color: T.textSec }}>{s}</span>
-              <span style={{ color: T.text, fontWeight: 700 }}>{ft.filter((t) => t.status === s).length}</span>
+            <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 3, background: stOf(s).c, boxShadow: `0 0 8px ${stOf(s).c}` }} />
+              <span style={{ color: 'var(--app-text-sec)' }}>{s}</span>
+              <span style={{ color: 'var(--app-text)', fontWeight: 800 }}>{ft.filter((t) => t.status === s).length}</span>
             </div>
           ))}
         </div>
@@ -93,17 +94,17 @@ export function OverviewView() {
           .map((mod) => {
             const p = mod.total ? Math.round((mod.done / mod.total) * 100) : 0
             return (
-              <div key={mod.m} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                <span style={{ width: 110, fontSize: 13, color: T.text, fontWeight: 500, flexShrink: 0 }}>{mod.m}</span>
-                <ProgressBar value={p} color={p === 100 ? T.ok : p > 60 ? T.info : T.warn} />
-                <span style={{ minWidth: 38, textAlign: 'right', fontSize: 13, fontWeight: 700, color: p === 100 ? T.ok : T.text }}>
+              <div key={mod.m} style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+                <span style={{ width: 130, fontSize: 14, color: 'var(--app-text)', fontWeight: 600, flexShrink: 0 }}>{mod.m}</span>
+                <ProgressBar value={p} color={p === 100 ? 'var(--app-ok, #34D399)' : p > 60 ? 'var(--app-info, #60A5FA)' : 'var(--app-warn, #FBBF24)'} />
+                <span style={{ minWidth: 42, textAlign: 'right', fontSize: 14, fontWeight: 800, color: p === 100 ? 'var(--app-ok, #34D399)' : 'var(--app-text)' }}>
                   {p}%
                 </span>
-                <span style={{ minWidth: 50, textAlign: 'right', fontSize: 11, color: T.textSec }}>
+                <span style={{ minWidth: 54, textAlign: 'right', fontSize: 12, color: 'var(--app-text-sec)' }}>
                   {mod.done}/{mod.total}
                 </span>
                 {mod.over > 0 && (
-                  <Badge color={T.danger} bg={T.dangerSoft} small>
+                  <Badge color="var(--app-danger, #F87171)" bg="rgba(248,113,113,0.1)" small>
                     ⚠{mod.over}
                   </Badge>
                 )}
