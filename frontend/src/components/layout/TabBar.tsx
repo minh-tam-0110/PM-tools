@@ -1,5 +1,3 @@
-import { T } from '@/lib/constants'
-
 export type TabId = 'overview' | 'charts' | 'calendar' | 'team' | 'projects' | 'kanban'
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
@@ -14,13 +12,12 @@ const TABS: { id: TabId; label: string; icon: string }[] = [
 export function TabBar({ value, onChange }: { value: TabId; onChange: (t: TabId) => void }) {
   return (
     <div
+      className="glass-panel"
       style={{
-        display: 'flex',
-        gap: 2,
-        background: T.surface,
-        borderRadius: 10,
-        padding: 3,
-        border: `1px solid ${T.border}`,
+        display: 'inline-flex',
+        gap: 4,
+        borderRadius: 12,
+        padding: 4,
         flexWrap: 'wrap',
       }}
     >
@@ -31,18 +28,29 @@ export function TabBar({ value, onChange }: { value: TabId; onChange: (t: TabId)
             key={t.id}
             onClick={() => onChange(t.id)}
             style={{
-              padding: '8px 14px',
+              padding: '8px 16px',
               borderRadius: 8,
               border: 'none',
               cursor: 'pointer',
               fontSize: 13,
               fontWeight: 600,
-              background: active ? T.accent : 'transparent',
-              color: active ? '#fff' : T.textSec,
-              transition: 'all .2s',
+              background: active ? 'var(--app-gradient-primary)' : 'transparent',
+              color: active ? '#fff' : 'var(--app-text-sec)',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: active ? '0 4px 12px rgba(124, 106, 239, 0.3)' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+            onMouseEnter={(e) => {
+              if (!active) e.currentTarget.style.color = 'var(--app-text)'
+            }}
+            onMouseLeave={(e) => {
+              if (!active) e.currentTarget.style.color = 'var(--app-text-sec)'
             }}
           >
-            {t.icon} {t.label}
+            <span style={{ fontSize: 14, opacity: active ? 1 : 0.7 }}>{t.icon}</span>
+            {t.label}
           </button>
         )
       })}
