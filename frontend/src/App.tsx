@@ -13,6 +13,7 @@ import { ProjectsView } from '@/features/projects/ProjectsView'
 import { KanbanView } from '@/features/kanban/KanbanView'
 import { ConnectionPanel } from '@/features/connection/ConnectionPanel'
 import { CreateTaskModal } from '@/features/create-task/CreateTaskModal'
+import { TaskDetailModal } from '@/components/shared/TaskDetailModal'
 
 export function App() {
   const bridge = useDataBridge()
@@ -51,6 +52,7 @@ export function App() {
       {showCreate && (
         <CreateTaskModal iframeRef={bridge.iframeRef} onClose={() => setShowCreate(false)} />
       )}
+      <TaskDetailModal />
     </AppLayout>
   )
 }

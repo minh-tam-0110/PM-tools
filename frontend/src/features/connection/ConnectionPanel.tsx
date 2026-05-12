@@ -161,6 +161,7 @@ function BeBridgeTab({ onClose }: { onClose: () => void }) {
   const [status, setStatus] = useState<BridgeStatus | null>(null)
   const [busy, setBusy] = useState<null | 'login' | 'scrape' | 'dump'>(null)
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [fullDesc, setFullDesc] = useState(false)
 
   const refreshStatus = async () => {
     try {
@@ -192,7 +193,7 @@ function BeBridgeTab({ onClose }: { onClose: () => void }) {
     setBusy('scrape')
     setMsg({ kind: 'ok', text: 'Đang scrape /my-work...' })
     try {
-      const r = await bridgeApi.scrape()
+      const r = await bridgeApi.scrape({ fullDesc })
       const norm = normalizeImported({ tasks: r.tasks })
       useTaskStore.getState().setAll(norm)
       useConnStore.getState().setSrc('be')
@@ -246,6 +247,11 @@ function BeBridgeTab({ onClose }: { onClose: () => void }) {
         </span>
         <button className="btn-outline" onClick={refreshStatus} style={{ ...ghostBtn, marginLeft: 'auto' }}>↻ Refresh</button>
       </div>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, cursor: 'pointer', fontSize: 13, color: 'var(--app-text-sec)' }}>
+        <input type="checkbox" checked={fullDesc} onChange={e => setFullDesc(e.target.checked)} style={{ accentColor: 'var(--app-ok, #34D399)', width: 15, height: 15 }} />
+        Fetch full descriptions <span style={{ opacity: 0.6 }}>(chậm hơn ~2 phút)</span>
+      </label>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <button className="btn-primary" onClick={doLogin} disabled={!!busy} style={{ ...primaryBtn, opacity: busy ? 0.6 : 1, background: 'var(--app-info, #60A5FA)' }}>

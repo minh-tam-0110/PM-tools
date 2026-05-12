@@ -54,6 +54,7 @@ def scrape():
     Query param `refresh_active=true` cũng invalidate active-sprints cache trước scrape.
     """
     force = request.args.get("force") == "true"
+    full_desc = request.args.get("full_desc") == "true"
     if request.args.get("refresh_active") == "true":
         from pathlib import Path
         from ..bridge_config import ACTIVE_SPRINTS_CACHE_PATH
@@ -62,7 +63,9 @@ def scrape():
         except OSError:
             pass
 
-    if not force:
+    # full_desc=true also bypasses cache: caller explicitly wants full descriptions,
+    # and cache may only have truncated ones from the bg_worker fast path.
+    if not force and not full_desc:
         cached = load_last_scrape()
         if cached is not None:
             extracted_at = cached.get("extractedAt")
@@ -87,7 +90,10 @@ def scrape():
         return jsonify({"error": "scrape in progress, try again"}), 503
 
     try:
-        result = scraper.scrape_my_work(current_app.config["BRIDGE_PROFILE_DIR"])
+        result = scraper.scrape_my_work(
+            current_app.config["BRIDGE_PROFILE_DIR"],
+            fetch_full_descriptions=full_desc,
+        )
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 503
     except Exception as exc:
@@ -115,6 +121,19 @@ def last_scrape():
 def bg_status():
     """Return background worker state."""
     return jsonify(bg_worker.get_status())
+
+
+@bp.post("/api/bridge/debug-fetch-desc")
+def debug_fetch_desc():
+    """One-shot debug: thử fetch full description cho 1 task. Trả trace chi tiết."""
+    try:
+        result = scraper.debug_fetch_one_description(current_app.config["BRIDGE_PROFILE_DIR"])
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 503
+    except Exception as exc:
+        logger.exception("debug_fetch_desc failed")
+        return jsonify({"error": str(exc)}), 500
+    return jsonify(result)
 
 
 @bp.post("/api/bridge/dump-sprint-dropdowns")

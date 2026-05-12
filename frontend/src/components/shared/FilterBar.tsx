@@ -25,6 +25,9 @@ function MultiSelect({
   placeholder,
   selectedLabel,
   minWidth = 180,
+  searchable = false,
+  searchPlaceholder = 'Tìm...',
+  searchKey,
 }: {
   options: MSOption[]
   value: string[]
@@ -32,9 +35,25 @@ function MultiSelect({
   placeholder: string
   selectedLabel?: (n: number, first: MSOption | undefined) => string
   minWidth?: number
+  searchable?: boolean
+  searchPlaceholder?: string
+  /** Per-option searchable string. Defaults to option.value. */
+  searchKey?: (o: MSOption) => string
 }) {
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) setQuery('')
+  }, [open])
+
+  const filteredOptions = useMemo(() => {
+    if (!searchable || !query.trim()) return options
+    const q = query.toLowerCase()
+    const key = searchKey ?? ((o: MSOption) => o.value)
+    return options.filter((o) => key(o).toLowerCase().includes(q))
+  }, [options, query, searchable, searchKey])
 
   useEffect(() => {
     if (!open) return
@@ -86,10 +105,32 @@ function MultiSelect({
             boxShadow: '0 12px 24px rgba(0,0,0,0.2)',
           }}
         >
-          {options.length === 0 && (
-            <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--app-text-muted)' }}>Không có lựa chọn</div>
+          {searchable && (
+            <div style={{ padding: '6px 10px', borderBottom: '1px solid var(--app-border)', position: 'sticky', top: 0, background: 'var(--app-card)', zIndex: 1 }}>
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={searchPlaceholder}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  borderRadius: 6,
+                  border: '1px solid var(--app-border)',
+                  background: 'var(--app-surface)',
+                  color: 'var(--app-text)',
+                  fontSize: 12,
+                  outline: 'none',
+                }}
+              />
+            </div>
           )}
-          {options.map((opt) => {
+          {filteredOptions.length === 0 && (
+            <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--app-text-muted)' }}>
+              {searchable && query ? 'Không tìm thấy' : 'Không có lựa chọn'}
+            </div>
+          )}
+          {filteredOptions.map((opt) => {
             const checked = value.includes(opt.value)
             return (
               <label
@@ -129,6 +170,173 @@ function MultiSelect({
   )
 }
 
+function SingleSelect({
+  options,
+  value,
+  onChange,
+  placeholder,
+  allLabel,
+  minWidth = 180,
+  searchable = false,
+  searchPlaceholder = 'Tìm...',
+  searchKey,
+  disabled = false,
+}: {
+  options: MSOption[]
+  value: string
+  onChange: (v: string) => void
+  /** Label hiển thị khi không có option nào chọn ("all"). */
+  placeholder: string
+  /** Label cho option "all" (clear). */
+  allLabel?: string
+  minWidth?: number
+  searchable?: boolean
+  searchPlaceholder?: string
+  searchKey?: (o: MSOption) => string
+  disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) setQuery('')
+  }, [open])
+
+  const filteredOptions = useMemo(() => {
+    if (!searchable || !query.trim()) return options
+    const q = query.toLowerCase()
+    const key = searchKey ?? ((o: MSOption) => o.value)
+    return options.filter((o) => key(o).toLowerCase().includes(q))
+  }, [options, query, searchable, searchKey])
+
+  const selected = options.find((o) => o.value === value)
+  const active = value !== 'all' && !!selected
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => !disabled && setOpen((o) => !o)}
+        disabled={disabled}
+        style={{
+          ...sel,
+          background: active ? 'rgba(124, 106, 239, 0.1)' : 'var(--app-surface)',
+          borderColor: active ? 'var(--app-accent)' : 'var(--app-border)',
+          color: active ? 'var(--app-accent)' : 'var(--app-text)',
+          boxShadow: active ? '0 0 0 1px var(--app-accent)' : 'none',
+          opacity: disabled ? 0.5 : 1,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+        }}
+      >
+        {selected ? selected.value : placeholder} <span style={{ fontSize: 10, marginLeft: 4, opacity: 0.7 }}>▼</span>
+      </button>
+      {open && !disabled && (
+        <div
+          className="animate-fade-in"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 8px)',
+            left: 0,
+            zIndex: 100,
+            background: 'var(--app-card)',
+            border: `1px solid var(--app-border)`,
+            borderRadius: 12,
+            padding: '6px 0',
+            minWidth,
+            maxHeight: 320,
+            overflowY: 'auto',
+            boxShadow: '0 12px 24px rgba(0,0,0,0.2)',
+          }}
+        >
+          {searchable && (
+            <div style={{ padding: '6px 10px', borderBottom: '1px solid var(--app-border)', position: 'sticky', top: 0, background: 'var(--app-card)', zIndex: 1 }}>
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={searchPlaceholder}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  borderRadius: 6,
+                  border: '1px solid var(--app-border)',
+                  background: 'var(--app-surface)',
+                  color: 'var(--app-text)',
+                  fontSize: 12,
+                  outline: 'none',
+                }}
+              />
+            </div>
+          )}
+          <div
+            onClick={() => {
+              onChange('all')
+              setOpen(false)
+            }}
+            style={{
+              padding: '8px 16px',
+              fontSize: 13,
+              fontWeight: value === 'all' ? 700 : 500,
+              color: value === 'all' ? 'var(--app-text)' : 'var(--app-text-sec)',
+              background: value === 'all' ? 'rgba(255,255,255,.04)' : 'transparent',
+              cursor: 'pointer',
+              borderBottom: '1px solid var(--app-border)',
+            }}
+          >
+            {allLabel ?? `Tất cả ${placeholder}`}
+          </div>
+          {filteredOptions.length === 0 && (
+            <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--app-text-muted)' }}>
+              {searchable && query ? 'Không tìm thấy' : 'Không có lựa chọn'}
+            </div>
+          )}
+          {filteredOptions.map((opt) => {
+            const checked = opt.value === value
+            return (
+              <div
+                key={opt.value}
+                onClick={() => {
+                  onChange(opt.value)
+                  setOpen(false)
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  background: checked ? 'rgba(255,255,255,.04)' : 'transparent',
+                  fontSize: 13,
+                  color: checked ? 'var(--app-text)' : 'var(--app-text-sec)',
+                  fontWeight: checked ? 600 : 500,
+                  transition: 'background 0.2s',
+                }}
+                onMouseOver={(e) => {
+                  if (!checked) e.currentTarget.style.background = 'rgba(255,255,255,.02)'
+                }}
+                onMouseOut={(e) => {
+                  if (!checked) e.currentTarget.style.background = 'transparent'
+                }}
+              >
+                {opt.row}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function FilterBar() {
   const tasks = useTaskStore((s) => s.tasks)
   const team = useTaskStore((s) => s.team)
@@ -147,34 +355,66 @@ export function FilterBar() {
     [hasProjectMap, projectMap, tasks],
   )
 
-  // Sprints/members hiển thị: nếu chưa chọn project ("all") → all; ngược lại đọc trực tiếp
-  // projectMap[selected]. Không còn useMemo scoping logic ở FE.
-  const scopedSprints =
-    filters.module === 'all'
-      ? sprints
-      : hasProjectMap
-        ? (projectMap[filters.module]?.sprints ?? [])
-        : sprints.filter((s) => tasks.some((t) => t.module === filters.module && t.sprint?.id === s.id))
+  // Sprints/members hiển thị: nếu không chọn project nào → all; nếu chọn 1+ project → union
+  // sprints/members của các project được chọn.
+  const scopedSprints = useMemo(() => {
+    if (filters.modules.length === 0) return sprints
+    if (hasProjectMap) {
+      const seen = new Set<string>()
+      const out: typeof sprints = []
+      for (const m of filters.modules) {
+        for (const s of projectMap[m]?.sprints ?? []) {
+          if (!seen.has(s.id)) {
+            seen.add(s.id)
+            out.push(s)
+          }
+        }
+      }
+      return out
+    }
+    return sprints.filter((s) =>
+      tasks.some((t) => filters.modules.includes(t.module) && t.sprint?.id === s.id),
+    )
+  }, [filters.modules, sprints, hasProjectMap, projectMap, tasks])
 
-  const scopedMembers =
-    filters.module === 'all'
-      ? team
-      : hasProjectMap
-        ? (projectMap[filters.module]?.members ?? [])
-        : team.filter((m) => tasks.some((t) => t.module === filters.module && t.assignee?.id === m.id))
+  const scopedMembers = useMemo(() => {
+    if (filters.modules.length === 0) return team
+    if (hasProjectMap) {
+      const seen = new Set<number>()
+      const out: typeof team = []
+      for (const m of filters.modules) {
+        for (const mb of projectMap[m]?.members ?? []) {
+          if (!seen.has(mb.id)) {
+            seen.add(mb.id)
+            out.push(mb)
+          }
+        }
+      }
+      return out
+    }
+    return team.filter((m) => tasks.some((t) => filters.modules.includes(t.module) && t.assignee?.id === m.id))
+  }, [filters.modules, team, hasProjectMap, projectMap, tasks])
 
-  // Active sprint ID cho project hiện tại — dùng để mark "🎯 Active" trong dropdown.
+  // Active sprint ID — chỉ show khi đúng 1 project được chọn.
   const activeSprintId =
-    filters.module !== 'all' && hasProjectMap ? projectMap[filters.module]?.activeSprintId : undefined
+    filters.modules.length === 1 && hasProjectMap ? projectMap[filters.modules[0]]?.activeSprintId : undefined
 
   const filteredCount = useMemo(() => applyFilters(tasks, filters, search).length, [tasks, filters, search])
   const active = hasActiveFilter(filters)
 
-  const onModuleChange = (mod: string) => {
-    // Đổi project → sprint + members hiện tại có thể không còn nằm trong project mới.
-    // Reset cả hai để filter bắt đầu fresh trong scope project mới.
-    set({ module: mod, sprint: 'all', members: [] })
+  const onModulesChange = (mods: string[]) => {
+    // Đổi project → sprint + members hiện tại có thể không còn trong scope mới.
+    set({ modules: mods, sprint: 'all', members: [] })
   }
+
+  const moduleOptions: MSOption[] = useMemo(
+    () =>
+      modules.map((m) => ({
+        value: m,
+        row: <span>{m}</span>,
+      })),
+    [modules],
+  )
 
   const memberOptions: MSOption[] = useMemo(
     () =>
@@ -238,31 +478,38 @@ export function FilterBar() {
         Lọc:
       </span>
 
-      <select className="input-premium" value={filters.module} onChange={(e) => onModuleChange(e.target.value)} style={sel}>
-        <option value="all">Tất cả Project</option>
-        {modules.map((m) => (
-          <option key={m}>{m}</option>
-        ))}
-      </select>
+      <MultiSelect
+        options={moduleOptions}
+        value={filters.modules}
+        onChange={onModulesChange}
+        placeholder="Project"
+        selectedLabel={(n, first) => (n === 0 ? 'Project' : n === 1 && first ? first.value : `${n} project`)}
+        minWidth={220}
+        searchable
+        searchPlaceholder="Tìm project..."
+      />
 
-      <select
-        className="input-premium"
-        value={sprintInScope ? filters.sprint : 'all'}
-        onChange={(e) => set({ sprint: e.target.value })}
-        style={sel}
-        disabled={scopedSprints.length === 0}
-      >
-        <option value="all">Tất cả Sprint</option>
-        {scopedSprints.map((s) => {
+      <SingleSelect
+        options={scopedSprints.map((s) => {
           const isActive = s.id === activeSprintId
-          return (
-            <option key={s.id} value={s.id}>
-              {s.name}
-              {isActive ? '  🎯 Active' : s.status === 'active' ? ' ●' : ''}
-            </option>
-          )
+          const suffix = isActive ? '  🎯 Active' : s.status === 'active' ? ' ●' : ''
+          return {
+            value: s.id,
+            row: (
+              <>
+                <span>{s.name}</span>
+                {suffix && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--app-text-muted)' }}>{suffix}</span>}
+              </>
+            ),
+          }
         })}
-      </select>
+        value={sprintInScope ? filters.sprint : 'all'}
+        onChange={(v) => set({ sprint: v })}
+        placeholder="Sprint"
+        allLabel="Tất cả Sprint"
+        minWidth={220}
+        disabled={scopedSprints.length === 0}
+      />
 
       <MultiSelect
         options={memberOptions}
@@ -278,14 +525,24 @@ export function FilterBar() {
           return `${n} người`
         }}
         minWidth={240}
+        searchable
+        searchPlaceholder="Tìm assignee..."
+        searchKey={(o) => {
+          const m = scopedMembers.find((x) => String(x.id) === o.value)
+          return `${m?.name ?? ''} ${m?.role ?? ''}`
+        }}
       />
 
-      <select className="input-premium" value={filters.priority} onChange={(e) => set({ priority: e.target.value })} style={sel}>
-        <option value="all">Priority</option>
-        {PRIORITIES.map((p) => (
-          <option key={p}>{p}</option>
-        ))}
-      </select>
+      <SingleSelect
+        options={PRIORITIES.map((p) => ({
+          value: p,
+          row: <span>{p}</span>,
+        }))}
+        value={filters.priority}
+        onChange={(v) => set({ priority: v })}
+        placeholder="Priority"
+        allLabel="Tất cả Priority"
+      />
 
       <MultiSelect
         options={statusOptions}

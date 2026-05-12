@@ -21,7 +21,7 @@ import logging
 import threading
 from datetime import datetime, timezone
 
-from ..bridge_config import BG_SCRAPE_INTERVAL_SEC
+from ..bridge_config import BG_FETCH_FULL_DESCRIPTIONS, BG_SCRAPE_INTERVAL_SEC
 from .cache import hash_tasks, load_last_scrape, save_last_scrape
 from .scraper import scrape_lock, scrape_my_work
 
@@ -73,8 +73,22 @@ def _run_scrape(profile_dir: str, interval: int) -> None:
 
         _set_state(in_progress=True, last_error=None)
         try:
-            logger.debug("bg_worker: starting scrape")
-            result = scrape_my_work(profile_dir)
+            logger.debug("bg_worker: starting scrape (full_desc=%s)", BG_FETCH_FULL_DESCRIPTIONS)
+            result = scrape_my_work(profile_dir, fetch_full_descriptions=BG_FETCH_FULL_DESCRIPTIONS)
+            # Safety net: preserve longer descriptions from prior cache khi full_desc=false
+            # hoặc một task fetch fail và rơi về truncated. Tránh clobber data tốt sẵn có.
+            prev = load_last_scrape()
+            if prev:
+                prev_desc = {
+                    t.get("id"): t.get("description") or ""
+                    for t in prev.get("tasks", [])
+                    if t.get("id")
+                }
+                for t in result.get("tasks", []):
+                    old_d = prev_desc.get(t.get("id"), "")
+                    new_d = t.get("description") or ""
+                    if len(old_d) > len(new_d):
+                        t["description"] = old_d
             result["hash"] = hash_tasks(result.get("tasks", []))
             save_last_scrape(result)
             now_iso = datetime.now(timezone.utc).isoformat()

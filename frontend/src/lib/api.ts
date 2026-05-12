@@ -67,7 +67,13 @@ export const bridgeApi = {
   status: () => http<BridgeStatus>('GET', '/bridge/status'),
   bgStatus: () => http<BgWorkerStatus>('GET', '/bridge/bg-status'),
   login: () => http<{ ok: boolean; saved_to: string }>('POST', '/bridge/login'),
-  scrape: () => http<BridgeScrapeResult>('POST', '/bridge/scrape'),
+  scrape: (opts?: { fullDesc?: boolean; force?: boolean }) => {
+    const params = new URLSearchParams()
+    if (opts?.fullDesc) params.set('full_desc', 'true')
+    if (opts?.force) params.set('force', 'true')
+    const qs = params.toString()
+    return http<BridgeScrapeResult>('POST', `/bridge/scrape${qs ? '?' + qs : ''}`)
+  },
   /** GET cached last scrape. Trả null nếu BE chưa có (HTTP 204). */
   last: async (): Promise<BridgeScrapeResult | null> => {
     const r = await fetch(BASE + '/bridge/last')

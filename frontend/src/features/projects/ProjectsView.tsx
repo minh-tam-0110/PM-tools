@@ -13,6 +13,7 @@ export function ProjectsView() {
   const tasks = useTaskStore((s) => s.tasks)
   const filters = useFilterStore((s) => s.filters)
   const search = useFilterStore((s) => s.search)
+  const setSelectedTask = useTaskStore((s) => s.setSelectedTask)
 
   const ft = useMemo(() => applyFilters(tasks, filters, search), [tasks, filters, search])
   const byProject = useMemo(() => _.groupBy(ft, (t) => t.module || '—'), [ft])
@@ -105,6 +106,7 @@ export function ProjectsView() {
                   <div
                     key={t.id}
                     className="card-hover"
+                    onClick={() => setSelectedTask(t.id)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -114,6 +116,7 @@ export function ProjectsView() {
                       background: t.isOverdue ? 'rgba(248,113,113,.04)' : 'var(--app-surface)',
                       border: t.isOverdue ? '1px solid rgba(248,113,113,.2)' : '1px solid var(--app-border)',
                       fontSize: 13,
+                      cursor: 'pointer'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 100, flexShrink: 0 }}>
@@ -121,15 +124,28 @@ export function ProjectsView() {
                       <span style={{ color: 'var(--app-text-muted)', fontWeight: 700, fontSize: 12 }}>{t.id}</span>
                     </div>
                     
-                    <div style={{ flex: 1, color: 'var(--app-text)', fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {t.title}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}>
+                      <div style={{ color: 'var(--app-text)', fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {t.title}
+                      </div>
+                      {t.description && (
+                        <div style={{ color: 'var(--app-text-sec)', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {t.description}
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-                      <div style={{ width: 80 }}>
+                      <div style={{ width: 140, display: 'flex', alignItems: 'center', gap: 10 }}>
                         <Badge color={prioC[t.priority]?.c ?? 'var(--app-text-muted)'} bg={prioC[t.priority]?.bg ?? 'rgba(255,255,255,0.05)'} small>
                           {t.priority}
                         </Badge>
+                        {t.time && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--app-text-sec)', fontSize: 12, fontWeight: 600 }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            {t.time}
+                          </div>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 140 }}>

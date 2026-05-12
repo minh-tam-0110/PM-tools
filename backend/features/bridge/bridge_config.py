@@ -26,6 +26,8 @@ SCRAPE_TIMEOUT_MS = 45 * 1000
 
 # Background worker — set 0 to disable
 BG_SCRAPE_INTERVAL_SEC = int(os.environ.get("BRIDGE_BG_SCRAPE_INTERVAL_SEC", "300"))
+# Bg-worker fetch full descriptions? Slower (click từng row) nhưng description không bị truncate.
+BG_FETCH_FULL_DESCRIPTIONS = os.environ.get("BRIDGE_BG_FETCH_FULL_DESC", "true").lower() in ("1", "true", "yes")
 # Manual /scrape returns cached result if cache is newer than this many seconds
 CACHE_MAX_AGE_SEC = int(os.environ.get("BRIDGE_CACHE_MAX_AGE_SEC", "60"))
 # Active sprints (phase 1 mapping) ít đổi (vài ngày/sprint) → cache lâu, tránh chạy mỗi scrape.

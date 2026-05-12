@@ -108,6 +108,7 @@ export function normTask(raw: unknown, idx: number = 0, today: Date = new Date()
     isOverdue: status !== 'Done' && new Date(deadline) < today,
     progress: typeof o.progress === 'number' ? o.progress : typeof o.percent === 'number' ? o.percent : defaultProgress(status),
     sp: Number(o.sp ?? o.storyPoints ?? o.points ?? 3) || 3,
+    time: (o.time ?? o.estimatedTime ?? o.loggedTime ?? o.duration ?? o.timeEstimate) as string | undefined,
     source: 'imported',
     description: (o.description ?? o.desc) as string | undefined,
   }

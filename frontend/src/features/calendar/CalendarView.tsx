@@ -38,6 +38,7 @@ function getMonth(y: number, m: number): Date[] {
 
 export function CalendarView() {
   const tasks = useTaskStore((s) => s.tasks)
+  const setSelectedTask = useTaskStore((s) => s.setSelectedTask)
   const filters = useFilterStore((s) => s.filters)
   const search = useFilterStore((s) => s.search)
   const [mode, setMode] = useState<'week' | 'month'>('week')
@@ -167,18 +168,26 @@ export function CalendarView() {
                   Chưa có Deadline
                 </div>
                 {noDeadlineTasks.slice().sort((a, b) => PRIORITIES.indexOf(a.priority as any) - PRIORITIES.indexOf(b.priority as any)).map(t => (
-                  <div key={t.id} className="card-hover" style={{ padding: 10, borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--app-border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div key={t.id} className="card-hover" onClick={() => setSelectedTask(t.id)} style={{ padding: 10, borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--app-border)', display: 'flex', flexDirection: 'column', gap: 6, cursor: 'pointer' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-muted)' }}>{t.id}</span>
                       <Badge color={prioC[t.priority]?.c ?? 'var(--app-text-muted)'} bg={prioC[t.priority]?.bg ?? 'var(--app-surface)'} small>{t.priority}</Badge>
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--app-text)' }}>{t.title}</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    {t.description && (
+                      <div style={{ fontSize: 11, color: 'var(--app-text-sec)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', textOverflow: 'ellipsis', lineHeight: 1.4 }}>
+                        {t.description}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Avatar name={t.assignee?.name ?? '?'} initials={t.assignee?.av ?? '?'} size={18} />
                         <span style={{ fontSize: 11, color: 'var(--app-text-sec)', fontWeight: 500 }}>{(t.assignee?.name ?? '').split(' ').pop()}</span>
                       </div>
-                      <span style={{ fontSize: 11, color: stOf(t.status).c, fontWeight: 600 }}>{t.status}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {t.time && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-muted)', background: 'var(--app-surface)', padding: '2px 6px', borderRadius: 4 }}>{t.time}</span>}
+                        <span style={{ fontSize: 11, color: stOf(t.status).c, fontWeight: 600 }}>{t.status}</span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -299,11 +308,13 @@ export function CalendarView() {
                       <div
                         key={t.id}
                         className="card-hover"
+                        onClick={() => setSelectedTask(t.id)}
                         style={{
                           padding: '8px',
                           borderRadius: 8,
                           background: t.isOverdue ? 'rgba(248,113,113,0.1)' : 'rgba(255,255,255,.03)',
                           border: t.isOverdue ? '1px solid rgba(248,113,113,.2)' : '1px solid transparent',
+                          cursor: 'pointer'
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
@@ -313,15 +324,28 @@ export function CalendarView() {
                             <span style={{ fontSize: 9, color: 'var(--app-danger, #F87171)', fontWeight: 800, marginLeft: 'auto' }}>OVERDUE</span>
                           )}
                         </div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--app-text)', lineHeight: 1.4, marginBottom: 8 }}>{t.title}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--app-text)', lineHeight: 1.4, marginBottom: t.description ? 4 : 8 }}>{t.title}</div>
+                        {t.description && (
+                          <div style={{ fontSize: 11, color: 'var(--app-text-sec)', marginBottom: 8, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', textOverflow: 'ellipsis', lineHeight: 1.3 }}>
+                            {t.description}
+                          </div>
+                        )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <Avatar name={t.assignee?.name ?? '?'} initials={t.assignee?.av ?? '?'} size={18} />
                             <span style={{ fontSize: 10, color: 'var(--app-text-muted)', fontWeight: 500 }}>{(t.assignee?.name ?? '').split(' ').pop()}</span>
                           </div>
-                          <Badge color={prioC[t.priority]?.c ?? 'var(--app-text-muted)'} bg={prioC[t.priority]?.bg ?? 'var(--app-surface)'} small>
-                            {t.priority?.[0]}
-                          </Badge>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Badge color={prioC[t.priority]?.c ?? 'var(--app-text-muted)'} bg={prioC[t.priority]?.bg ?? 'var(--app-surface)'} small>
+                              {t.priority?.[0]}
+                            </Badge>
+                            {t.time && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--app-text-sec)', fontSize: 10, fontWeight: 700 }}>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                {t.time}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -387,6 +411,7 @@ export function CalendarView() {
                   {dt.slice(0, 3).map((t) => (
                     <div
                       key={t.id}
+                      onClick={() => setSelectedTask(t.id)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -401,6 +426,7 @@ export function CalendarView() {
                         overflow: 'hidden',
                         whiteSpace: 'nowrap',
                         textOverflow: 'ellipsis',
+                        cursor: 'pointer',
                       }}
                     >
                       <span style={{ fontSize: 9 }}>{stOf(t.status).i}</span>
