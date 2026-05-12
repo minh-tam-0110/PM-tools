@@ -109,7 +109,7 @@ export function normTask(raw: unknown, idx: number = 0, today: Date = new Date()
     progress: typeof o.progress === 'number' ? o.progress : typeof o.percent === 'number' ? o.percent : defaultProgress(status),
     sp: Number(o.sp ?? o.storyPoints ?? o.points ?? 3) || 3,
     source: 'imported',
-    description: o.desc as string | undefined,
+    description: (o.description ?? o.desc) as string | undefined,
   }
 }
 
