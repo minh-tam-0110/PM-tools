@@ -127,7 +127,7 @@ export function useDataBridge() {
     // Default: BE scrape (works for src='be', 'none', or 'manual')
     useConnStore.getState().setIframeSt('loading')
     try {
-      const r = await bridgeApi.scrape()
+      const r = await bridgeApi.scrape({ fullDesc: true })
       useConnStore.getState().setSrc('be')
       useConnStore.getState().setIframeSt('connected')
       useConnStore.getState().touchSync(r.extractedAt ? new Date(r.extractedAt) : undefined)
