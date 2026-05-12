@@ -6,7 +6,7 @@ export function applyFilters(tasks: Task[], f: Filters, search: string = ''): Ta
     if (f.sprint !== 'all' && t.sprint?.id !== f.sprint) return false
     if (f.members.length > 0 && !f.members.includes(String(t.assignee?.id))) return false
     if (f.priority !== 'all' && t.priority !== f.priority) return false
-    if (f.module !== 'all' && t.module !== f.module) return false
+    if (f.modules.length > 0 && !f.modules.includes(t.module)) return false
     if (f.statuses.length > 0 && !f.statuses.includes(t.status)) return false
     return true
   })
@@ -26,7 +26,7 @@ export const EMPTY_FILTERS: Filters = {
   sprint: 'all',
   members: [],
   priority: 'all',
-  module: 'all',
+  modules: [],
   statuses: [],
 }
 
@@ -34,5 +34,5 @@ export const hasActiveFilter = (f: Filters): boolean =>
   f.sprint !== 'all' ||
   f.members.length > 0 ||
   f.priority !== 'all' ||
-  f.module !== 'all' ||
+  f.modules.length > 0 ||
   f.statuses.length > 0

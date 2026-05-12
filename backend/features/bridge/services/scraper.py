@@ -823,11 +823,140 @@ def _scrape_dialog_table(page) -> list[dict]:
     return result.get("tasks", []) if isinstance(result, dict) else []
 
 
-def scrape_my_work(profile_dir: str) -> dict:
+# Detail dialog selector: textarea với placeholder "Nhập mô tả chi tiết cho task..."
+# Field này nằm trong dialog mở sau khi click task row → chứa full description.
+_DESC_TEXTAREA_JS = r"""
+  (() => {
+    const dialogs = document.querySelectorAll('.MuiDialog-paper');
+    if (dialogs.length < 2) return null;  // chỉ Overview dialog đang mở
+    const detail = dialogs[dialogs.length - 1];
+    const ta = detail.querySelector('textarea[placeholder*="mô tả"]');
+    return ta ? (ta.value || '') : null;
+  })()
+"""
+
+
+def _fetch_full_description(page, task_id: str) -> str | None:
+    """Click row có Task ID khớp trong Overview dialog → đọc full description từ detail dialog.
+
+    Returns description string, "" nếu textarea rỗng, None nếu không click được / fail.
+    Detail dialog có textarea placeholder "Nhập mô tả chi tiết cho task..." — đó là field
+    chứa description đầy đủ (list view chỉ show summary truncated).
+    """
+    try:
+        before_count = page.evaluate(
+            "() => document.querySelectorAll('.MuiDialog-paper').length"
+        )
+        clicked = page.evaluate(
+            """(tid) => {
+                const norm = s => (s || '').toString().replace(/\\s+/g, ' ').trim();
+                const dlg = document.querySelector('.MuiDialog-paper');
+                if (!dlg) return false;
+                const tables = Array.from(dlg.querySelectorAll('table'));
+                for (const tbl of tables) {
+                    const heads = Array.from(tbl.querySelectorAll('thead th, thead td'))
+                        .map(c => norm(c.textContent));
+                    const nameIdx = heads.findIndex(h => h.includes('Task Name'));
+                    if (nameIdx < 0) continue;
+                    const rows = tbl.querySelectorAll('tbody tr');
+                    for (const r of rows) {
+                        const cells = Array.from(r.querySelectorAll('td, th'));
+                        const cellTexts = cells.map(c => norm(c.textContent));
+                        if (!cellTexts.includes(tid)) continue;
+                        const nameCell = cells[nameIdx];
+                        if (!nameCell) return false;
+                        // Task Name render as link/button — click most specific clickable
+                        const target =
+                            nameCell.querySelector('a, button, [role="button"], .MuiLink-root') ||
+                            nameCell.querySelector('span, p, div') ||
+                            nameCell;
+                        target.click();
+                        return true;
+                    }
+                }
+                return false;
+            }""",
+            task_id,
+        )
+        if not clicked:
+            return None
+        try:
+            page.wait_for_function(
+                """(prev) => {
+                    const dialogs = document.querySelectorAll('.MuiDialog-paper');
+                    if (dialogs.length <= prev) return false;
+                    const newDlg = dialogs[dialogs.length - 1];
+                    return !!newDlg.querySelector('textarea[placeholder*="mô tả"]');
+                }""",
+                arg=before_count,
+                timeout=5000,
+            )
+        except PWTimeout:
+            return None
+        desc = page.evaluate(_DESC_TEXTAREA_JS)
+        return desc if isinstance(desc, str) else None
+    except Exception as exc:
+        logger.warning("fetch full description failed for %r: %s", task_id, exc)
+        return None
+    finally:
+        # Đóng CHỈ detail dialog — Escape close cả 2 (cả Overview) → next iteration fail.
+        # Click nút X (close button) trong detail dialog để Overview vẫn mở.
+        try:
+            page.evaluate(
+                """() => {
+                    const dialogs = document.querySelectorAll('.MuiDialog-paper');
+                    if (dialogs.length < 2) return false;
+                    const detail = dialogs[dialogs.length - 1];
+                    const closeBtn =
+                        detail.querySelector('button[aria-label*="close" i]') ||
+                        detail.querySelector('button[aria-label*="Close"]') ||
+                        Array.from(detail.querySelectorAll('button')).find(b => {
+                            const r = b.getBoundingClientRect();
+                            const dr = detail.getBoundingClientRect();
+                            return r.top - dr.top < 80 && dr.right - r.right < 80;
+                        });
+                    if (closeBtn) { closeBtn.click(); return true; }
+                    return false;
+                }"""
+            )
+            page.wait_for_function(
+                """() => document.querySelectorAll('.MuiDialog-paper').length === 1""",
+                timeout=3000,
+            )
+        except PWTimeout:
+            pass
+        except Exception:
+            pass
+
+
+def _enrich_full_descriptions(page, tasks: list[dict]) -> int:
+    """Lặp qua tasks trong Overview dialog hiện tại, click từng row đọc full description.
+
+    Mutates tasks in place: ghi đè `description` nếu fetch thành công và non-empty.
+    Returns: số task được enrich. Best-effort — task fail giữ description cũ.
+    """
+    enriched = 0
+    for t in tasks:
+        tid = t.get("id")
+        if not tid:
+            continue
+        full = _fetch_full_description(page, tid)
+        if full:
+            t["description"] = full
+            enriched += 1
+    return enriched
+
+
+def scrape_my_work(profile_dir: str, fetch_full_descriptions: bool = False) -> dict:
     """Scrape pipeline 2-phase:
       Phase 1: /my-projects → mapping {project: active_sprint} (sprint có status "In Progress").
       Phase 2: /my-work → Project Overview dialog → mỗi project select đúng sprint từ mapping.
                Project không nằm trong mapping → fallback first-sprint.
+
+    Args:
+        fetch_full_descriptions: nếu True, click từng task row mở detail dialog để lấy
+            full description (textarea). Đắt: +~0.5-1s mỗi task. Mặc định False vì list-view
+            description đã đủ cho hầu hết use case.
     """
     # Lazy import để tránh circular (cache → config → ...)
     from .cache import load_active_sprints_cache, save_active_sprints_cache
@@ -892,6 +1021,9 @@ def scrape_my_work(profile_dir: str) -> dict:
                         if sprint_name else None
                     )
                     rows = _scrape_dialog_table(page)
+                    if fetch_full_descriptions and rows:
+                        enriched = _enrich_full_descriptions(page, rows)
+                        logger.info("enriched %d/%d descriptions for %r", enriched, len(rows), proj)
                     for r in rows:
                         r["module"] = proj  # override với project name (chuẩn xác hơn)
                         # Promote sprint string → structured dict với ID project-scoped.
@@ -945,6 +1077,113 @@ def scrape_my_work(profile_dir: str) -> dict:
                 result["activeSprintsDiag"] = _active_sprints_diag
                 result["_diag"] = diag
             return result
+
+
+def debug_fetch_one_description(profile_dir: str) -> dict:
+    """One-shot: open overview, select first project, scrape table, try fetch full desc
+    for FIRST task. Return verbose trace để debug selector.
+    """
+    _ensure_profile(profile_dir)
+    trace: dict = {"steps": []}
+    with sync_playwright() as p:
+        with _persistent_context(p, profile_dir, headless=True) as ctx:
+            page = ctx.new_page()
+            try:
+                _goto_my_work(page)
+                trace["steps"].append({"step": "goto_my_work", "url": page.url})
+                _open_overview_dialog(page)
+                trace["steps"].append({"step": "open_overview", "ok": True})
+                project_items = _list_projects(page)
+                proj = project_items[0]["text"]
+                trace["project"] = proj
+                _select_only_project(page, proj)
+                _select_first_sprint(page)
+                rows = _scrape_dialog_table(page)
+                trace["row_count"] = len(rows)
+                if not rows:
+                    trace["error"] = "no rows"
+                    return trace
+                first = rows[0]
+                tid = first.get("id")
+                trace["target_task_id"] = tid
+                trace["original_description"] = first.get("description")
+
+                # Probe: count dialogs before
+                before_count = page.evaluate(
+                    "() => document.querySelectorAll('.MuiDialog-paper').length"
+                )
+                trace["dialogs_before_click"] = before_count
+
+                # Click attempt
+                clicked = page.evaluate(
+                    """(tid) => {
+                        const norm = s => (s || '').toString().replace(/\\s+/g, ' ').trim();
+                        const dlg = document.querySelector('.MuiDialog-paper');
+                        if (!dlg) return {clicked: false, reason: 'no overview dialog'};
+                        const tables = Array.from(dlg.querySelectorAll('table'));
+                        for (const tbl of tables) {
+                            const heads = Array.from(tbl.querySelectorAll('thead th, thead td'))
+                                .map(c => norm(c.textContent));
+                            const nameIdx = heads.findIndex(h => h.includes('Task Name'));
+                            if (nameIdx < 0) continue;
+                            const rows = tbl.querySelectorAll('tbody tr');
+                            for (const r of rows) {
+                                const cells = Array.from(r.querySelectorAll('td, th'));
+                                const cellTexts = cells.map(c => norm(c.textContent));
+                                if (!cellTexts.includes(tid)) continue;
+                                const nameCell = cells[nameIdx];
+                                const target =
+                                    nameCell.querySelector('a, button, [role="button"], .MuiLink-root') ||
+                                    nameCell.querySelector('span, p, div') ||
+                                    nameCell;
+                                target.click();
+                                return {
+                                    clicked: true,
+                                    targetTag: target.tagName,
+                                    targetClass: target.className,
+                                    nameCellHTML: nameCell.outerHTML.slice(0, 500)
+                                };
+                            }
+                        }
+                        return {clicked: false, reason: 'task ID not found in any table'};
+                    }""",
+                    tid,
+                )
+                trace["click_result"] = clicked
+
+                # Wait for new dialog
+                try:
+                    page.wait_for_function(
+                        """(prev) => document.querySelectorAll('.MuiDialog-paper').length > prev""",
+                        arg=before_count,
+                        timeout=5000,
+                    )
+                    trace["new_dialog_appeared"] = True
+                except PWTimeout:
+                    trace["new_dialog_appeared"] = False
+
+                # Inspect what dialogs exist now
+                trace["dialog_inventory"] = page.evaluate(
+                    """() => {
+                        return Array.from(document.querySelectorAll('.MuiDialog-paper')).map((d, i) => ({
+                            idx: i,
+                            textareaCount: d.querySelectorAll('textarea').length,
+                            textareaPlaceholders: Array.from(d.querySelectorAll('textarea')).map(t => t.placeholder),
+                            hasDescTextarea: !!d.querySelector('textarea[placeholder*="mô tả"]'),
+                        }));
+                    }"""
+                )
+
+                desc = page.evaluate(_DESC_TEXTAREA_JS)
+                trace["fetched_description"] = desc
+            except Exception as exc:
+                trace["error"] = str(exc)
+            finally:
+                try:
+                    page.keyboard.press("Escape")
+                except Exception:
+                    pass
+    return trace
 
 
 def dump_sprint_dropdowns(profile_dir: str) -> dict:

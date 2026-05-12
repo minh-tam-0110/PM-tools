@@ -11,6 +11,7 @@ export function KanbanView() {
   const tasks = useTaskStore((s) => s.tasks)
   const filters = useFilterStore((s) => s.filters)
   const search = useFilterStore((s) => s.search)
+  const setSelectedTask = useTaskStore((s) => s.setSelectedTask)
 
   const ft = useMemo(() => applyFilters(tasks, filters, search), [tasks, filters, search])
   const cols = [...new Set(ft.map((t) => t.status))].sort(
@@ -76,14 +77,27 @@ export function KanbanView() {
                         </span>
                       )}
                     </div>
-                    <Badge color={prioC[t.priority]?.c ?? 'var(--app-text-muted)'} bg={prioC[t.priority]?.bg ?? 'var(--app-surface)'} small>
-                      {t.priority}
-                    </Badge>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Badge color={prioC[t.priority]?.c ?? 'var(--app-text-muted)'} bg={prioC[t.priority]?.bg ?? 'var(--app-surface)'} small>
+                        {t.priority}
+                      </Badge>
+                      {t.time && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--app-text-sec)', fontSize: 11, fontWeight: 700 }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                          {t.time}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
-                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--app-text)', lineHeight: 1.4, marginBottom: 12 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--app-text)', lineHeight: 1.4, marginBottom: t.description ? 6 : 12 }}>
                     {t.title}
                   </div>
+                  {t.description && (
+                    <div style={{ fontSize: 12, color: 'var(--app-text-sec)', marginBottom: 12, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', textOverflow: 'ellipsis', lineHeight: 1.4 }}>
+                      {t.description}
+                    </div>
+                  )}
                   
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 600, color: 'var(--app-text-sec)', marginBottom: 6 }}>
@@ -100,9 +114,6 @@ export function KanbanView() {
                     </div>
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-muted)', background: 'var(--app-surface)', padding: '2px 6px', borderRadius: 4 }}>
-                        {t.sp} SP
-                      </span>
                       {t.deadline && (
                         <span style={{ 
                           fontSize: 11, 

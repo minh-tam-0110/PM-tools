@@ -33,6 +33,7 @@ export type Task = {
   isOverdue: boolean
   progress: number
   sp: number
+  time?: string
   source: 'imported' | 'created'
   description?: string
 }
@@ -41,7 +42,7 @@ export type Filters = {
   sprint: string
   members: string[]
   priority: string
-  module: string
+  modules: string[]
   statuses: string[]
 }
 

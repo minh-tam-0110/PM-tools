@@ -17,6 +17,8 @@ type State = {
   add: (input: CreateTaskInput) => Task
   update: (id: string, patch: Partial<Task>) => void
   remove: (id: string) => void
+  selectedTaskId: string | null
+  setSelectedTask: (id: string | null) => void
 }
 
 export const useTaskStore = create<State>((set, get) => ({
@@ -24,6 +26,8 @@ export const useTaskStore = create<State>((set, get) => ({
   team: [],
   sprints: [],
   projectMap: {},
+  selectedTaskId: null,
+  setSelectedTask: (id) => set({ selectedTaskId: id }),
   setAll: ({ tasks, team, sprints, projectMap }) =>
     set((s) => ({
       tasks,

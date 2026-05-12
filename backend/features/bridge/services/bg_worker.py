@@ -75,6 +75,22 @@ def _run_scrape(profile_dir: str, interval: int) -> None:
         try:
             logger.debug("bg_worker: starting scrape")
             result = scrape_my_work(profile_dir)
+            # Preserve longer descriptions from prior cache. Bg_worker scrapes without
+            # fetch_full_descriptions (fast path); a manual scrape with full_desc=true
+            # may have populated full descriptions — don't clobber them with truncated
+            # versions from the table cell.
+            prev = load_last_scrape()
+            if prev:
+                prev_desc = {
+                    t.get("id"): t.get("description") or ""
+                    for t in prev.get("tasks", [])
+                    if t.get("id")
+                }
+                for t in result.get("tasks", []):
+                    old_d = prev_desc.get(t.get("id"), "")
+                    new_d = t.get("description") or ""
+                    if len(old_d) > len(new_d):
+                        t["description"] = old_d
             result["hash"] = hash_tasks(result.get("tasks", []))
             save_last_scrape(result)
             now_iso = datetime.now(timezone.utc).isoformat()
